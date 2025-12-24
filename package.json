@@ -1,17 +1,24 @@
 {
-  "name": "obsidian-ai-note-renamer",
+  "name": "obsidian-smart-workflow",
   "version": "1.0.4",
-  "description": "AI-powered plugin that automatically generates intelligent, context-aware filenames from note content.",
+  "description": "A smart workflow plugin for Obsidian that streamlines your knowledge management with intelligent note naming and integrated terminal.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
-    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "build:rust": "node scripts/build-rust.js",
+    "build:rust:all": "node scripts/build-rust.js",
+    "package": "node scripts/package-plugin.js",
+    "package:zip": "node scripts/package-plugin.js --zip",
+    "release": "npm run build && npm run build:rust && npm run package:zip",
+    "install:dev": "node scripts/install-dev.js"
   },
   "keywords": [
     "obsidian",
     "plugin",
-    "ai",
-    "filename"
+    "workflow",
+    "terminal",
+    "intelligent"
   ],
   "author": "",
   "license": "MIT",
@@ -21,8 +28,16 @@
     "@typescript-eslint/parser": "^5.29.0",
     "builtin-modules": "^3.3.0",
     "esbuild": "0.17.3",
+    "esbuild-compress": "^2.0.2",
     "obsidian": "^1.11.0",
     "tslib": "2.4.0",
     "typescript": "4.7.4"
+  },
+  "dependencies": {
+    "@xterm/addon-canvas": "^0.7.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "@xterm/addon-webgl": "^0.19.0",
+    "@xterm/xterm": "^5.5.0"
   }
 }

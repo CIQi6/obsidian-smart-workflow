@@ -1,5 +1,5 @@
 import { App, requestUrl, RequestUrlResponse } from 'obsidian';
-import { AIFileNamerSettings, APIConfig, BASE_PROMPT_TEMPLATE } from '../settings/settings';
+import { AIFileNamerSettings, APIConfig, BASE_PROMPT_TEMPLATE } from '../../settings/settings';
 
 /**
  * API 响应数据接口

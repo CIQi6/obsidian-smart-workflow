@@ -1,0 +1,160 @@
+name: Build Rust PTY Server
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows x64
+          - os: windows-latest
+            platform: win32
+            arch: x64
+            target: x86_64-pc-windows-msvc
+            ext: .exe
+            
+          # macOS ARM64 (Apple Silicon)
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+            target: aarch64-apple-darwin
+            ext: ''
+            
+          # macOS x64 (Intel)
+          - os: macos-latest
+            platform: darwin
+            arch: x64
+            target: x86_64-apple-darwin
+            ext: ''
+            
+          # Linux x64
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+            target: x86_64-unknown-linux-gnu
+            ext: ''
+            
+          # Linux ARM64
+          - os: ubuntu-latest
+            platform: linux
+            arch: arm64
+            target: aarch64-unknown-linux-gnu
+            ext: ''
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.platform == 'linux' && matrix.arch == 'arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            pty-server/target/
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('pty-server/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.target }}-
+            ${{ runner.os }}-cargo-
+
+      - name: Build PTY server
+        working-directory: pty-server
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare binary
+        shell: bash
+        run: |
+          mkdir -p binaries
+          BINARY_NAME="pty-server-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.ext }}"
+          cp "pty-server/target/${{ matrix.target }}/release/pty-server${{ matrix.ext }}" "binaries/${BINARY_NAME}"
+          
+          # Verify binary exists and has reasonable size
+          if [ ! -f "binaries/${BINARY_NAME}" ]; then
+            echo "Error: Binary not found at binaries/${BINARY_NAME}"
+            exit 1
+          fi
+          
+          SIZE=$(stat -f%z "binaries/${BINARY_NAME}" 2>/dev/null || stat -c%s "binaries/${BINARY_NAME}")
+          echo "Binary size: ${SIZE} bytes"
+          
+          if [ ${SIZE} -lt 100000 ]; then
+            echo "Error: Binary size too small (${SIZE} bytes), build may have failed"
+            exit 1
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: pty-server-${{ matrix.platform }}-${{ matrix.arch }}
+          path: binaries/pty-server-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.ext }}
+          retention-days: 7
+
+  test-binaries:
+    name: Test binaries
+    needs: build
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win32
+            arch: x64
+            ext: .exe
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+            ext: ''
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+            ext: ''
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: pty-server-${{ matrix.platform }}-${{ matrix.arch }}
+          path: binaries
+
+      - name: Test binary execution
+        shell: bash
+        run: |
+          BINARY_NAME="pty-server-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.ext }}"
+          chmod +x "binaries/${BINARY_NAME}" 2>/dev/null || true
+          
+          # Test that binary can start and output port info
+          timeout 5s "binaries/${BINARY_NAME}" --port 0 > output.txt 2>&1 || true
+          
+          if grep -q '"port"' output.txt; then
+            echo "✓ Binary successfully outputs port information"
+            cat output.txt
+          else
+            echo "✗ Binary did not output expected port information"
+            cat output.txt
+            exit 1
+          fi

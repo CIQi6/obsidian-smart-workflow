@@ -1,38 +1,50 @@
-# AI Note Renamer
+# Smart Workflow
 
-**AI Note Renamer** 是一款强大的 Obsidian 插件，利用 AI 智能分析笔记内容，一键生成准确、简洁且符合您习惯的文件名。告别起名困难症，让您的知识库井井有条。
+**Smart Workflow** 是一款强大的 Obsidian 智能工作流插件，通过智能笔记命名和集成终端功能，提升您的知识管理效率。告别起名困难和频繁切换窗口，让一切都在 Obsidian 中高效完成。
 
 ## ✨ 功能特性
 
-*   **🧠 智能重命名**：基于 OpenAI 兼容 API（支持 GPT, Claude, DeepSeek 等），深度理解笔记内容并生成最佳文件名。
-*   **🖱️ 便捷触发**：
-    *   **悬浮魔法按钮**：直接在笔记标题旁显示悬浮按钮，点击即刻生成。
+### 🧠 智能笔记命名
+*   **智能分析**：基于 OpenAI 兼容 API（支持 GPT, Claude, DeepSeek 等），深度理解笔记内容并生成最佳文件名。
+*   **便捷触发**：
     *   **多处入口**：支持侧边栏图标、命令面板、编辑器右键及文件列表右键菜单。
-*   **⚙️ 多配置管理**：支持保存多套 API 配置，并可快速切换。
-*   **🎨 高度可定制**：
+*   **多配置管理**：支持保存多套 API 配置，并可快速切换。
+*   **高度可定制**：
     *   自定义 Prompt 模板，支持变量注入。
     *   精细控制 AI 参数（Temperature, Top P, Max Tokens）。
     *   **上下文感知**：可选择是否参考当前文件名进行优化。
-*   **🛡️ 健壮性设计**：
+*   **健壮性设计**：
     *   支持 "思考链" 模型（如 DeepSeek R1），自动过滤 `<think>` 标签。
     *   智能 API 端点补全与修正。
     *   自定义请求超时时间。
 
-## 📸 界面预览
-
-![设置面板](https://test.fukit.cn/autoupload/f/KTO6-pUlsq3zQ-YJ9ppdgtiO_OyvX7mIgxFBfDMDErs/20251216/ZXhm/779X787/QQ20251216-145137.png/webp)
+### 💻 集成终端
+*   **跨平台支持**：在 Windows、macOS 和 Linux 上无缝运行。
+*   **原生体验**：基于 Rust 的 PTY 服务器，通过 WebSocket 通信。
+*   **多种渲染器**：可选择 canvas 或 WebGL 渲染以获得最佳性能。
+*   **自动恢复**：自动检测崩溃并重启服务器。
+*   **多会话支持**：支持同时打开多个终端实例。
+*   **高度可定制**：
+    *   自定义 Shell 路径（支持 PowerShell、CMD、Bash 等）。
+    *   可调节滚动缓冲区大小（100-10000 行）。
+    *   自定义终端面板默认高度（100-1000 像素）。
+    *   支持启动时自动恢复上次打开的终端。
+*   **主题与外观**：
+    *   支持使用 Obsidian 主题颜色或自定义颜色方案。
+    *   可设置背景图片、透明度和毛玻璃模糊效果。
+    *   自适应明暗主题切换。
 
 ## 🚀 安装
 
 ### 手动安装（推荐）
-1.  从 [Releases](https://github.com/yourusername/obsidian-ai-note-renamer/releases) 下载 `main.js`, `manifest.json`, `styles.css`。
-2.  将文件放入您的插件目录：`.obsidian/plugins/ai-note-renamer/`。
+1.  从 [Releases](https://github.com/ZyphrZero/obsidian-smart-workflow/releases) 下载 `main.js`, `manifest.json`, `styles.css`。
+2.  将文件放入您的插件目录：`.obsidian/plugins/smart-workflow/`。
 3.  重启 Obsidian 并在设置中启用插件。
 
 ### 源码编译
 ```bash
-git clone https://github.com/yourusername/obsidian-ai-note-renamer.git
-cd obsidian-ai-note-renamer
+git clone https://github.com/ZyphrZero/obsidian-smart-workflow.git
+cd obsidian-smart-workflow
 npm install
 npm run build
 ```
@@ -69,10 +81,24 @@ npm run build
 
 ## ⚙️ 高级设置
 
+### AI 文件命名设置
 *   **使用当前文件名作为上下文**：开启后，AI 会知道当前文件名叫什么，您可以让它"优化"现有名称而不是重新生成。
 *   **分析目录命名风格**：(实验性) 尝试分析同目录下其他文件的命名习惯。
 *   **调试模式**：在开发者控制台 (Ctrl+Shift+I) 输出完整的 Prompt 和 API 响应，便于排查问题。
 *   **超时设置**：网络较慢时可适当增加超时时间。
+
+### 终端设置
+*   **Shell 配置**：
+    *   支持自定义 Shell 路径（如 `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`）。
+    *   自动验证 Shell 路径有效性，避免启动失败。
+*   **外观定制**：
+    *   **渲染器选择**：canvas（兼容性好）或 WebGL（性能更佳）。
+    *   **主题颜色**：使用 Obsidian 主题或自定义前景色、背景色、光标颜色等。
+    *   **背景图片**：支持设置背景图片 URL，可调节透明度（0-1）和毛玻璃模糊效果（0-50px）。
+*   **行为设置**：
+    *   **滚动缓冲区**：设置终端历史记录行数（100-10000），默认 1000 行。
+    *   **面板高度**：设置终端面板默认高度（100-1000 像素），默认 300 像素。
+    *   **启动恢复**：开启后，插件加载时自动恢复上次打开的终端实例。
 
 ## 🧩 常见问题
 

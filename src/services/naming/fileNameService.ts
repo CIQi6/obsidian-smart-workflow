@@ -1,7 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { AIService } from './aiService';
 import { FileAnalyzer } from './fileAnalyzer';
-import { AIFileNamerSettings } from '../settings/settings';
+import { AIFileNamerSettings } from '../../settings/settings';
 
 /**
  * 重命名结果接口

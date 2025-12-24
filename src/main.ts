@@ -1,9 +1,11 @@
-import { Plugin, TFile, Menu, MarkdownView } from 'obsidian';
+import { Plugin, TFile, Menu, MarkdownView, WorkspaceLeaf } from 'obsidian';
 import { AIFileNamerSettings, DEFAULT_SETTINGS } from './settings/settings';
 import { AIFileNamerSettingTab } from './settings/settingsTab';
-import { AIService } from './services/aiService';
-import { FileNameService, RenameResult } from './services/fileNameService';
+import { AIService } from './services/naming/aiService';
+import { FileNameService, RenameResult } from './services/naming/fileNameService';
 import { NoticeHelper } from './ui/noticeHelper';
+import { TerminalService } from './services/terminal/terminalService';
+import { TerminalView, TERMINAL_VIEW_TYPE } from './ui/terminal/terminalView';
 
 /**
  * AI 文件名生成器插件主类
@@ -12,6 +14,7 @@ export default class AIFileNamerPlugin extends Plugin {
   settings: AIFileNamerSettings;
   aiService: AIService;
   fileNameService: FileNameService;
+  terminalService: TerminalService;
   generatingFiles: Set<string> = new Set();
 
 
@@ -31,10 +34,26 @@ export default class AIFileNamerPlugin extends Plugin {
       this.aiService,
       this.settings
     );
+    
+    // 初始化终端服务（使用 Rust PTY 服务器架构）
+    console.log('[Plugin] 使用 Rust PTY 服务器架构');
+    const pluginDir = this.getPluginDir();
+    this.terminalService = new TerminalService(this.app, this.settings.terminal, pluginDir);
 
-    // 添加侧边栏图标按钮
+    // 注册终端视图
+    this.registerView(
+      TERMINAL_VIEW_TYPE,
+      (leaf: WorkspaceLeaf) => new TerminalView(leaf, this.terminalService)
+    );
+
+    // 添加侧边栏图标按钮 - AI 文件名生成
     this.addRibbonIcon('sparkles', 'AI 文件名生成', async () => {
       await this.handleGenerateCommand();
+    });
+
+    // 添加侧边栏图标按钮 - 打开终端
+    this.addRibbonIcon('terminal-square', '打开终端', async () => {
+      await this.activateTerminalView();
     });
 
     // 添加命令面板命令
@@ -43,6 +62,15 @@ export default class AIFileNamerPlugin extends Plugin {
       name: '生成 AI 文件名',
       callback: async () => {
         await this.handleGenerateCommand();
+      }
+    });
+
+    // 添加打开终端命令
+    this.addCommand({
+      id: 'open-terminal',
+      name: '打开终端',
+      callback: async () => {
+        await this.activateTerminalView();
       }
     });
 
@@ -85,6 +113,34 @@ export default class AIFileNamerPlugin extends Plugin {
         this.cleanupTitleAnimations();
       })
     );
+
+    // 恢复终端状态（如果启用）
+    if (this.settings.terminal.restoreTerminalsOnLoad && 
+        this.settings.terminal.savedTerminals.length > 0) {
+      try {
+        await this.terminalService.restoreTerminalStates(
+          this.settings.terminal.savedTerminals
+        );
+        
+        // 如果恢复了终端，自动打开终端面板
+        await this.activateTerminalView();
+      } catch (error) {
+        console.error('恢复终端状态失败:', error);
+        NoticeHelper.error('恢复终端状态失败，请手动创建新终端');
+      }
+    }
+
+    // 启动 PTY 服务器
+    try {
+      await this.terminalService.ensurePtyServer();
+      console.log('[Plugin] PTY 服务器已启动');
+    } catch (error) {
+      console.error('[Plugin] 启动 PTY 服务器失败:', error);
+      NoticeHelper.error(
+        '❌ PTY 服务器启动失败\n' +
+        '请查看控制台获取详细错误信息'
+      );
+    }
   }
 
   /**
@@ -191,6 +247,17 @@ export default class AIFileNamerPlugin extends Plugin {
     const loadedData = await this.loadData();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
 
+    // 确保终端设置完整（深度合并）
+    if (!this.settings.terminal) {
+      this.settings.terminal = { ...DEFAULT_SETTINGS.terminal };
+    } else {
+      // 合并终端设置，确保所有字段都存在
+      this.settings.terminal = {
+        ...DEFAULT_SETTINGS.terminal,
+        ...this.settings.terminal
+      };
+    }
+
     // 如果 defaultPromptTemplate 为空，使用代码中的默认值
     if (!this.settings.defaultPromptTemplate || this.settings.defaultPromptTemplate.trim() === '') {
       this.settings.defaultPromptTemplate = DEFAULT_SETTINGS.defaultPromptTemplate;
@@ -214,12 +281,169 @@ export default class AIFileNamerPlugin extends Plugin {
    */
   async saveSettings() {
     await this.saveData(this.settings);
+    // 更新终端服务的设置（如果已初始化）
+    if (this.terminalService) {
+      this.terminalService.updateSettings(this.settings.terminal);
+    }
   }
 
   /**
    * 插件卸载时调用
    */
-  onunload() {
+  async onunload() {
     console.debug('卸载 AI File Namer 插件');
+
+    // 保存终端状态（如果启用）
+    if (this.settings.terminal.restoreTerminalsOnLoad) {
+      try {
+        this.settings.terminal.savedTerminals = 
+          this.terminalService.saveTerminalStates();
+        await this.saveSettings();
+      } catch (error) {
+        console.error('保存终端状态失败:', error);
+      }
+    }
+
+    // 清理所有终端
+    try {
+      await this.terminalService.destroyAllTerminals();
+    } catch (error) {
+      console.error('清理终端失败:', error);
+    }
+
+    // 停止 PTY 服务器
+    try {
+      await this.terminalService.stopPtyServer();
+      console.log('[Plugin] PTY 服务器已停止');
+    } catch (error) {
+      console.error('[Plugin] 停止 PTY 服务器失败:', error);
+    }
+  }
+
+  /**
+   * 获取插件目录的绝对路径
+   * 
+   * @returns 插件目录的绝对路径
+   */
+  private getPluginDir(): string {
+    const adapter = this.app.vault.adapter as any;
+    const vaultPath = adapter.getBasePath();
+    
+    // @ts-ignore - manifest.dir 在运行时存在
+    const manifestDir = this.manifest.dir || `.obsidian/plugins/${this.manifest.id}`;
+    
+    // 转换为绝对路径
+    return require('path').join(vaultPath, manifestDir);
+  }
+
+  /**
+   * 激活终端视图
+   * 参考 obsidian-terminal 的实现逻辑
+   */
+  async activateTerminalView(): Promise<void> {
+    const { workspace } = this.app;
+    const leaf = this.getLeafForNewTerminal();
+
+    // 如果启用锁定新实例，设置标签页为锁定状态
+    if (this.settings.terminal.lockNewInstance) {
+      leaf.setPinned(true);
+    }
+
+    await leaf.setViewState({
+      type: TERMINAL_VIEW_TYPE,
+      active: this.settings.terminal.focusNewInstance,
+    });
+
+    // 如果启用聚焦新实例，切换到新标签页
+    if (this.settings.terminal.focusNewInstance) {
+      workspace.setActiveLeaf(leaf, { focus: true });
+    }
+  }
+
+  /**
+   * 根据配置获取新终端的 WorkspaceLeaf
+   * 完全参考 obsidian-terminal 的 TerminalView.getLeaf() 实现
+   */
+  private getLeafForNewTerminal(): WorkspaceLeaf {
+    const { workspace } = this.app;
+    const { leftSplit, rightSplit } = workspace;
+    const { terminal: settings } = this.settings;
+
+    // 如果启用"在现有终端附近创建"
+    if (settings.createInstanceNearExistingOnes) {
+      const existingLeaves = workspace.getLeavesOfType(TERMINAL_VIEW_TYPE);
+      const existingLeaf = existingLeaves[existingLeaves.length - 1];
+
+      if (existingLeaf) {
+        const root = existingLeaf.getRoot();
+
+        // 如果在左侧栏，继续在左侧栏创建
+        if (root === leftSplit) {
+          const leftLeaf = workspace.getLeftLeaf(false);
+          if (leftLeaf) return leftLeaf;
+        }
+
+        // 如果在右侧栏，继续在右侧栏创建
+        if (root === rightSplit) {
+          const rightLeaf = workspace.getRightLeaf(false);
+          if (rightLeaf) return rightLeaf;
+        }
+
+        // 如果在主区域，设置为活动 leaf 并创建新标签页
+        workspace.setActiveLeaf(existingLeaf);
+        return workspace.getLeaf('tab');
+      }
+    }
+
+    // 根据 newInstanceBehavior 创建新的 leaf
+    switch (settings.newInstanceBehavior) {
+      case 'replaceTab':
+        // 替换当前标签页
+        return workspace.getLeaf();
+
+      case 'newTab':
+        // 新标签页：在当前标签组中创建新标签页
+        return workspace.getLeaf('tab');
+
+      case 'newLeftTab': {
+        // 左侧新标签页
+        const leftLeaf = workspace.getLeftLeaf(false);
+        return leftLeaf ?? workspace.getLeaf('split');
+      }
+
+      case 'newLeftSplit': {
+        // 左侧新分屏
+        const leftLeaf = workspace.getLeftLeaf(true);
+        return leftLeaf ?? workspace.getLeaf('split');
+      }
+
+      case 'newRightTab': {
+        // 右侧新标签页
+        const rightLeaf = workspace.getRightLeaf(false);
+        return rightLeaf ?? workspace.getLeaf('split');
+      }
+
+      case 'newRightSplit': {
+        // 右侧新分屏
+        const rightLeaf = workspace.getRightLeaf(true);
+        return rightLeaf ?? workspace.getLeaf('split');
+      }
+
+      case 'newHorizontalSplit':
+        // 水平分屏：在右侧创建分屏
+        return workspace.getLeaf('split', 'horizontal');
+
+      case 'newVerticalSplit':
+        // 垂直分屏：在下方创建分屏
+        return workspace.getLeaf('split', 'vertical');
+
+      case 'newWindow':
+        // 新窗口：在新窗口中打开
+        return workspace.getLeaf('window');
+
+      default:
+        // 默认：水平分屏
+        return workspace.getLeaf('split', 'vertical');
+    }
   }
 }

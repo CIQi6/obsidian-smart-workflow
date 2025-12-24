@@ -1,7 +1,15 @@
 # Node modules
 node_modules/
 .claude/
+.kiro/
 *.bat
+main.css
+
+# Rust
+target/
+
+# Binaries (excluded in development, included in release)
+binaries/
 
 # Build output
 main.js

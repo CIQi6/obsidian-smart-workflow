@@ -1,9 +1,9 @@
 {
-  "id": "ai-note-renamer",
-  "name": "AI Note Renamer",
+  "id": "obsidian-smart-workflow",
+  "name": "Smart Workflow",
   "version": "1.0.4",
   "minAppVersion": "0.15.0",
-  "description": "AI-powered plugin that automatically generates intelligent, context-aware filenames from note content.",
+  "description": "A smart workflow plugin for Obsidian that streamlines your knowledge management with intelligent note naming and integrated terminal.",
   "author": "ZyphrZero",
   "authorUrl": "https://github.com/ZyphrZero",
   "isDesktopOnly": false

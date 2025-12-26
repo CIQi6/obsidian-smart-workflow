@@ -1,6 +1,39 @@
 // Shell 检测和配置
 use portable_pty::CommandBuilder;
 
+/// Shell Integration 脚本（通过 PTY 注入）
+/// 使用空格前缀让命令不进入历史记录，使用重定向隐藏输出
+/// 注意：bash/zsh 默认配置下，以空格开头的命令不会记录到历史
+
+// Bash: 定义函数并设置 PROMPT_COMMAND，静默执行
+const SHELL_INTEGRATION_BASH: &str = " eval '__sw_cwd(){ printf \"\\e]7;file://%s%s\\e\\\\\" \"${HOSTNAME:-localhost}\" \"$PWD\";};PROMPT_COMMAND=\"__sw_cwd${PROMPT_COMMAND:+;$PROMPT_COMMAND}\"' 2>/dev/null;__sw_cwd;printf '\\ec'\n";
+
+// Zsh: 使用 precmd hook，静默执行
+const SHELL_INTEGRATION_ZSH: &str = " eval '__sw_cwd(){ printf \"\\e]7;file://%s%s\\e\\\\\" \"${HOST:-localhost}\" \"$PWD\";};autoload -Uz add-zsh-hook;add-zsh-hook precmd __sw_cwd;add-zsh-hook chpwd __sw_cwd' 2>/dev/null;__sw_cwd;printf '\\ec'\n";
+
+// Fish: 使用事件监听
+const SHELL_INTEGRATION_FISH: &str = " eval 'function __sw_cwd --on-variable PWD; printf \"\\e]7;file://%s%s\\e\\\\\" (hostname) $PWD; end' 2>/dev/null;__sw_cwd;printf '\\ec'\n";
+
+// PowerShell: 重写 prompt 函数
+const SHELL_INTEGRATION_PWSH: &str = " $null = Invoke-Expression 'if(-not $env:__sw_i){$env:__sw_i=1;function __sw_cwd{Write-Host -NoNewline \"`e]9;9;$($PWD.Path)`e\\\"};$__sw_op=$function:prompt;function global:prompt{__sw_cwd;if($__sw_op){&$__sw_op}else{\"PS $PWD> \"}}}';__sw_cwd;Clear-Host\n";
+
+// CMD: 使用 DOSKEY 宏拦截 cd 命令，并设置自定义 PROMPT
+// 注意：CMD 的 OSC 支持有限，使用 OSC 9;9 格式（Windows Terminal 支持）
+// $p 是当前路径，$e 是 ESC 字符
+const SHELL_INTEGRATION_CMD: &str = "@echo off & doskey cd=cd $* ^& echo $e]9;9;%CD%$e\\ & prompt $e]9;9;$p$e\\$p$g & cls\n";
+
+/// 获取 shell integration 脚本
+pub fn get_shell_integration_script(shell_type: &str) -> Option<&'static str> {
+    match shell_type {
+        "bash" | "gitbash" => Some(SHELL_INTEGRATION_BASH),
+        "zsh" => Some(SHELL_INTEGRATION_ZSH),
+        "fish" => Some(SHELL_INTEGRATION_FISH),
+        "pwsh" | "powershell" => Some(SHELL_INTEGRATION_PWSH),
+        "cmd" => Some(SHELL_INTEGRATION_CMD),
+        _ => None,
+    }
+}
+
 /// 根据 shell 类型获取 Shell 命令
 pub fn get_shell_by_type(shell_type: Option<&str>) -> CommandBuilder {
     match shell_type {
@@ -57,12 +90,8 @@ pub fn get_shell_by_type(shell_type: Option<&str>) -> CommandBuilder {
 pub fn get_default_shell() -> CommandBuilder {
     #[cfg(windows)]
     {
-        // Windows: 优先使用 PowerShell，回退到 CMD
-        if let Ok(powershell_path) = which_powershell() {
-            CommandBuilder::new(powershell_path)
-        } else {
-            CommandBuilder::new("cmd.exe")
-        }
+        // Windows: 默认使用 CMD
+        CommandBuilder::new("cmd.exe")
     }
 
     #[cfg(not(windows))]

@@ -91,6 +91,9 @@ impl PtySession {
             }
         }
         
+        // 标记这是 Smart Workflow 终端
+        cmd.env("TERM_PROGRAM", "smart-workflow");
+        
         // 启动 shell 进程
         let child = pair.slave.spawn_command(cmd)?;
         

@@ -52,6 +52,9 @@ export class TerminalService {
   private serverRestartAttempts = 0;
   private readonly maxRestartAttempts: number = 3;
   
+  // 关闭状态标志（防止卸载时触发重启逻辑）
+  private isShuttingDown = false;
+  
   // 终端实例管理
   private terminals: Map<string, TerminalInstance> = new Map();
 
@@ -217,11 +220,18 @@ export class TerminalService {
     }
 
     this.ptyServerProcess.on('exit', (code, signal) => {
-      errorLog(`[TerminalService] PTY 服务器退出: code=${code}, signal=${signal}`);
-      
       // 清理状态
       this.ptyServerPort = null;
       this.serverStartPromise = null;
+      
+      // 如果正在关闭，这是预期的退出，使用 debugLog
+      if (this.isShuttingDown) {
+        debugLog(`[TerminalService] PTY 服务器已停止: code=${code}, signal=${signal}`);
+        return;
+      }
+      
+      // 非预期退出，使用 errorLog
+      errorLog(`[TerminalService] PTY 服务器退出: code=${code}, signal=${signal}`);
       
       this.terminals.forEach(terminal => {
         terminal.handleServerCrash();
@@ -269,6 +279,9 @@ export class TerminalService {
    * 停止 PTY 服务器进程
    */
   async stopPtyServer(): Promise<void> {
+    // 设置关闭标志，防止触发重启逻辑
+    this.isShuttingDown = true;
+    
     if (this.ptyServerProcess) {
       debugLog('[TerminalService] 停止 PTY 服务器');
       

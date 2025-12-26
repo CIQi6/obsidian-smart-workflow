@@ -1,8 +1,20 @@
 import { App, PluginSettingTab, Setting, Modal, Notice, setIcon } from 'obsidian';
 import type SmartWorkflowPlugin from '../main';
 import { BASE_PROMPT_TEMPLATE, ADVANCED_PROMPT_TEMPLATE, getCurrentPlatformShell, setCurrentPlatformShell, getCurrentPlatformCustomShellPath, setCurrentPlatformCustomShellPath, ShellType } from './settings';
-import { validateShellPath } from '../services/terminal/platformUtils';
+import { existsSync } from 'fs';
 import { t } from '../i18n';
+
+/**
+ * 验证 Shell 路径是否有效
+ */
+function validateShellPath(path: string): boolean {
+  if (!path || path.trim() === '') return false;
+  try {
+    return existsSync(path);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * 设置标签页接口

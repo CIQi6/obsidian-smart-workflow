@@ -160,8 +160,14 @@ async fn handle_connection(
     let ws_sender_for_read = Arc::clone(&ws_sender);
     let pty_reader_for_read = Arc::clone(&pty_reader);
     
+    // 克隆用于 shell integration 注入
+    let pty_writer_for_init = Arc::clone(&pty_writer);
+    let shell_type_for_init = shell_type.clone();
+    
     // 启动 PTY 输出读取任务
     let read_task = tokio::spawn(async move {
+        let mut first_output = true;
+        
         loop {
             // 在阻塞任务中读取 PTY 输出
             let reader = Arc::clone(&pty_reader_for_read);
@@ -182,6 +188,22 @@ async fn handle_connection(
                     if let Err(e) = sender.send(Message::Binary(data[..n].to_vec())).await {
                         log_error!("发送 PTY 输出失败: {}", e);
                         break;
+                    }
+                    drop(sender);
+                    
+                    // 第一次输出后，注入 Shell Integration 脚本
+                    if first_output {
+                        first_output = false;
+                        if let Some(ref st) = shell_type_for_init {
+                            if let Some(script) = crate::shell::get_shell_integration_script(st) {
+                                let mut writer = pty_writer_for_init.lock().unwrap();
+                                if let Err(e) = writer.write(script.as_bytes()) {
+                                    log_error!("发送 Shell Integration 脚本失败: {}", e);
+                                } else {
+                                    log_debug!("已发送 Shell Integration 脚本");
+                                }
+                            }
+                        }
                     }
                 }
                 Ok(Ok(_)) => {

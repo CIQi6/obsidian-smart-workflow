@@ -266,7 +266,7 @@ export class TerminalInstance {
 
         this.ws.onmessage = (event) => {
           if (typeof event.data === 'string') {
-            // 尝试提取目录信息
+            // 尝试提取目录信息（从 OSC 序列）
             this.extractCwdFromOutput(event.data);
             this.xterm.write(event.data);
           } else if (event.data instanceof ArrayBuffer) {
@@ -1208,22 +1208,7 @@ export class TerminalInstance {
    * 支持 OSC 序列和 PowerShell/CMD/Git Bash/Bash prompt 格式
    */
   private extractCwdFromOutput(data: string): void {
-    // OSC 0 格式 (窗口标题，Git Bash 使用): \x1b]0;MINGW64:/path\x07
-    // eslint-disable-next-line no-control-regex
-    const osc0Match = data.match(/\x1b\]0;(?:MINGW(?:64|32)|MSYS):([^\x07]+)\x07/);
-    if (osc0Match) {
-      let path = osc0Match[1];
-      // 转换 Git Bash 路径格式到 Windows 格式
-      if (/^\/[a-zA-Z]\//.test(path)) {
-        const driveLetter = path[1].toUpperCase();
-        path = `${driveLetter}:${path.substring(2).replace(/\//g, '\\')}`;
-      }
-      this.currentCwd = path;
-      debugLog('[Terminal CWD] OSC0 (Git Bash) matched:', path);
-      return;
-    }
-    
-    // OSC 7 格式: \x1b]7;file://hostname/path\x07
+    // OSC 7 格式 (标准): \x1b]7;file://hostname/path\x07 或 \x1b]7;file://hostname/path\x1b\\
     // eslint-disable-next-line no-control-regex
     const osc7Match = data.match(/\x1b\]7;file:\/\/[^/]*([^\x07\x1b]+)[\x07\x1b]/);
     if (osc7Match) {
@@ -1237,7 +1222,7 @@ export class TerminalInstance {
       }
     }
     
-    // OSC 9;9 格式 (Windows Terminal): \x1b]9;9;path\x07
+    // OSC 9;9 格式 (Windows Terminal/CMD/PowerShell): \x1b]9;9;path\x07
     // eslint-disable-next-line no-control-regex
     const osc9Match = data.match(/\x1b\]9;9;([^\x07\x1b]+)[\x07\x1b]/);
     if (osc9Match) {
@@ -1246,75 +1231,23 @@ export class TerminalInstance {
       return;
     }
     
-    // 移除 ANSI 转义序列后再匹配 prompt
+    // OSC 0 格式 (窗口标题，Git Bash 使用): \x1b]0;MINGW64:/path\x07
     // eslint-disable-next-line no-control-regex
-    const cleanData = data.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
-    
-    // PowerShell prompt: PS path>
-    const psPromptMatch = cleanData.match(/PS ([A-Za-z]:[^>\r\n]+)>/);
-    if (psPromptMatch) {
-      this.currentCwd = psPromptMatch[1].trimEnd();
-      debugLog('[Terminal CWD] PowerShell matched:', this.currentCwd);
-      return;
-    }
-    
-    // CMD prompt: path>
-    const cmdPromptMatch = cleanData.match(/(?:^|\n)([A-Za-z]:\\[^>\r\n]*)>/);
-    if (cmdPromptMatch) {
-      this.currentCwd = cmdPromptMatch[1].trimEnd();
-      debugLog('[Terminal CWD] CMD matched:', this.currentCwd);
-      return;
-    }
-    
-    // Git Bash prompt (清理后): user@host MINGW64 /path\n$
-    const gitBashMatch = cleanData.match(/(?:MINGW(?:64|32)|MSYS)\s+([/~][^\r\n]*)\r?\n/);
-    if (gitBashMatch) {
-      let path = gitBashMatch[1].trimEnd();
+    const osc0Match = data.match(/\x1b\]0;(?:MINGW(?:64|32)|MSYS):([^\x07]+)\x07/);
+    if (osc0Match) {
+      let path = osc0Match[1];
       // 转换 Git Bash 路径格式到 Windows 格式
       if (/^\/[a-zA-Z]\//.test(path)) {
         const driveLetter = path[1].toUpperCase();
         path = `${driveLetter}:${path.substring(2).replace(/\//g, '\\')}`;
-      } else if (path.startsWith('~')) {
-        const home = process.env.HOME || process.env.USERPROFILE || '';
-        path = path.replace('~', home);
       }
       this.currentCwd = path;
-      debugLog('[Terminal CWD] Git Bash matched:', this.currentCwd);
-      return;
-    }
-    
-    // 通用 Bash/Zsh prompt: user@host:path$
-    const bashPromptMatch = cleanData.match(/[:]\s*([~/][^\s$#>\r\n]*)\s*[$#>]\s*$/m);
-    if (bashPromptMatch) {
-      let path = bashPromptMatch[1];
-      if (path.startsWith('~')) {
-        const home = process.env.HOME || process.env.USERPROFILE || '';
-        path = path.replace('~', home);
-      }
-      this.currentCwd = path;
-      debugLog('[Terminal CWD] Bash/Zsh matched:', this.currentCwd);
-      return;
-    }
-    
-    // WSL prompt: user@host:/mnt/x/path$ 或包含路径的行
-    // 匹配 /mnt/x/... 格式的 WSL 路径
-    const wslPathMatch = cleanData.match(/(?:^|:|\s)(\/mnt\/[a-zA-Z]\/[^\s$#>\r\n]*)/m);
-    if (wslPathMatch) {
-      this.currentCwd = wslPathMatch[1].trimEnd();
-      debugLog('[Terminal CWD] WSL path matched:', this.currentCwd);
-      return;
-    }
-    
-    // 如果包含 prompt 特征但未匹配，记录原始数据供调试
-    // 检测常见 prompt 结束符: $, #, >, %
-    if (/[$#>%]\s*$/.test(cleanData) && cleanData.length < 500) {
-      debugLog('[Terminal CWD] Unmatched prompt data (raw):', JSON.stringify(data));
-      debugLog('[Terminal CWD] Unmatched prompt data (clean):', cleanData);
+      debugLog('[Terminal CWD] OSC0 (Git Bash) matched:', path);
     }
   }
 
   /**
-   * 获取终端初始工作目录（同步，用于回退）
+   * 获取终端初始工作目录
    */
   getInitialCwd(): string {
     return this.options.cwd || process.env.HOME || process.env.USERPROFILE || process.cwd();

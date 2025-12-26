@@ -187,7 +187,7 @@ Requirements:
  * 默认平台 Shell 配置
  */
 export const DEFAULT_PLATFORM_SHELLS: PlatformShellConfig = {
-  windows: 'powershell',
+  windows: 'cmd',
   darwin: 'zsh',
   linux: 'bash'
 };

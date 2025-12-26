@@ -11,7 +11,8 @@
     "package": "node scripts/package-plugin.js",
     "package:zip": "node scripts/package-plugin.js --zip",
     "release": "npm run build && npm run build:rust && npm run package:zip",
-    "install:dev": "node scripts/install-dev.js"
+    "install:dev": "node scripts/install-dev.js",
+    "install:dev:force": "node scripts/install-dev.js -f --kill"
   },
   "keywords": [
     "obsidian",
@@ -36,6 +37,7 @@
   "dependencies": {
     "@xterm/addon-canvas": "^0.7.0",
     "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-search": "^0.16.0",
     "@xterm/addon-web-links": "^0.11.0",
     "@xterm/addon-webgl": "^0.19.0",
     "@xterm/xterm": "^5.5.0"

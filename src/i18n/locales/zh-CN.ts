@@ -28,6 +28,15 @@ export const zhCN: TranslationKeys = {
   commands: {
     generateAiFilename: '生成 AI 文件名',
     openTerminal: '打开终端',
+    terminalSearch: '终端：搜索',
+    terminalClear: '终端：清屏',
+    terminalCopy: '终端：复制选中内容',
+    terminalPaste: '终端：粘贴',
+    terminalFontIncrease: '终端：增大字体',
+    terminalFontDecrease: '终端：减小字体',
+    terminalFontReset: '终端：重置字体大小',
+    terminalSplitHorizontal: '终端：水平拆分',
+    terminalSplitVertical: '终端：垂直拆分',
   },
 
   menu: {
@@ -75,6 +84,30 @@ export const zhCN: TranslationKeys = {
     defaultTitle: '终端',
     renameTerminal: '重命名终端',
     renameTerminalPlaceholder: '输入终端名称',
+    contextMenu: {
+      copy: '复制',
+      copyAsPlainText: '复制为纯文本',
+      paste: '粘贴',
+      selectAll: '全选',
+      clear: '清屏',
+      search: '搜索',
+      copyPath: '复制当前路径',
+      openInExplorer: '在文件管理器中打开',
+      newTerminal: '新建终端',
+      splitTerminal: '拆分终端',
+      splitHorizontal: '水平拆分',
+      splitVertical: '垂直拆分',
+      fontSize: '字体大小',
+      fontIncrease: '增大',
+      fontDecrease: '减小',
+      fontReset: '重置',
+    },
+    search: {
+      placeholder: '搜索...',
+      previous: '上一个',
+      next: '下一个',
+      close: '关闭',
+    },
   },
 
   settings: {

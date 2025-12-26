@@ -39,6 +39,15 @@ export interface TranslationKeys {
   commands: {
     generateAiFilename: string;
     openTerminal: string;
+    terminalSearch: string;
+    terminalClear: string;
+    terminalCopy: string;
+    terminalPaste: string;
+    terminalFontIncrease: string;
+    terminalFontDecrease: string;
+    terminalFontReset: string;
+    terminalSplitHorizontal: string;
+    terminalSplitVertical: string;
   };
 
   // 菜单
@@ -92,6 +101,30 @@ export interface TranslationKeys {
     defaultTitle: string;
     renameTerminal: string;
     renameTerminalPlaceholder: string;
+    contextMenu: {
+      copy: string;
+      copyAsPlainText: string;
+      paste: string;
+      selectAll: string;
+      clear: string;
+      search: string;
+      copyPath: string;
+      openInExplorer: string;
+      newTerminal: string;
+      splitTerminal: string;
+      splitHorizontal: string;
+      splitVertical: string;
+      fontSize: string;
+      fontIncrease: string;
+      fontDecrease: string;
+      fontReset: string;
+    };
+    search: {
+      placeholder: string;
+      previous: string;
+      next: string;
+      close: string;
+    };
   };
 
   // 设置标签页

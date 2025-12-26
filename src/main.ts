@@ -89,6 +89,151 @@ export default class SmartWorkflowPlugin extends Plugin {
       });
     }
 
+    // 终端快捷键命令
+    this.addCommand({
+      id: 'terminal-search',
+      name: t('commands.terminalSearch'),
+      checkCallback: (checking: boolean) => {
+        const terminalView = this.getActiveTerminalView();
+        if (terminalView) {
+          if (!checking) {
+            terminalView.showSearch();
+          }
+          return true;
+        }
+        return false;
+      }
+    });
+
+    this.addCommand({
+      id: 'terminal-clear',
+      name: t('commands.terminalClear'),
+      checkCallback: (checking: boolean) => {
+        const terminalView = this.getActiveTerminalView();
+        if (terminalView?.getTerminalInstance()) {
+          if (!checking) {
+            terminalView.getTerminalInstance()?.getXterm().clear();
+          }
+          return true;
+        }
+        return false;
+      }
+    });
+
+    this.addCommand({
+      id: 'terminal-copy',
+      name: t('commands.terminalCopy'),
+      checkCallback: (checking: boolean) => {
+        const terminalView = this.getActiveTerminalView();
+        const terminal = terminalView?.getTerminalInstance();
+        if (terminal?.getXterm().hasSelection()) {
+          if (!checking) {
+            const selection = terminal.getXterm().getSelection();
+            navigator.clipboard.writeText(selection);
+            terminal.getXterm().clearSelection();
+          }
+          return true;
+        }
+        return false;
+      }
+    });
+
+    this.addCommand({
+      id: 'terminal-paste',
+      name: t('commands.terminalPaste'),
+      checkCallback: (checking: boolean) => {
+        const terminalView = this.getActiveTerminalView();
+        const terminal = terminalView?.getTerminalInstance();
+        if (terminal) {
+          if (!checking) {
+            navigator.clipboard.readText().then(text => {
+              if (text) terminal.sendMessage(text);
+            });
+          }
+          return true;
+        }
+        return false;
+      }
+    });
+
+    this.addCommand({
+      id: 'terminal-font-increase',
+      name: t('commands.terminalFontIncrease'),
+      checkCallback: (checking: boolean) => {
+        const terminalView = this.getActiveTerminalView();
+        const terminal = terminalView?.getTerminalInstance();
+        if (terminal) {
+          if (!checking) {
+            terminal.increaseFontSize();
+          }
+          return true;
+        }
+        return false;
+      }
+    });
+
+    this.addCommand({
+      id: 'terminal-font-decrease',
+      name: t('commands.terminalFontDecrease'),
+      checkCallback: (checking: boolean) => {
+        const terminalView = this.getActiveTerminalView();
+        const terminal = terminalView?.getTerminalInstance();
+        if (terminal) {
+          if (!checking) {
+            terminal.decreaseFontSize();
+          }
+          return true;
+        }
+        return false;
+      }
+    });
+
+    this.addCommand({
+      id: 'terminal-font-reset',
+      name: t('commands.terminalFontReset'),
+      checkCallback: (checking: boolean) => {
+        const terminalView = this.getActiveTerminalView();
+        const terminal = terminalView?.getTerminalInstance();
+        if (terminal) {
+          if (!checking) {
+            terminal.resetFontSize();
+          }
+          return true;
+        }
+        return false;
+      }
+    });
+
+    this.addCommand({
+      id: 'terminal-split-horizontal',
+      name: t('commands.terminalSplitHorizontal'),
+      checkCallback: (checking: boolean) => {
+        const terminalView = this.getActiveTerminalView();
+        if (terminalView) {
+          if (!checking) {
+            this.splitTerminal('horizontal');
+          }
+          return true;
+        }
+        return false;
+      }
+    });
+
+    this.addCommand({
+      id: 'terminal-split-vertical',
+      name: t('commands.terminalSplitVertical'),
+      checkCallback: (checking: boolean) => {
+        const terminalView = this.getActiveTerminalView();
+        if (terminalView) {
+          if (!checking) {
+            this.splitTerminal('vertical');
+          }
+          return true;
+        }
+        return false;
+      }
+    });
+
     // 添加编辑器右键菜单
     if (this.settings.featureVisibility.aiNaming.showInEditorMenu) {
       this.registerEvent(
@@ -368,6 +513,29 @@ export default class SmartWorkflowPlugin extends Plugin {
     if (this.settings.terminal.focusNewInstance) {
       workspace.setActiveLeaf(leaf, { focus: true });
     }
+  }
+
+  /**
+   * 获取当前活动的终端视图
+   */
+  private getActiveTerminalView(): TerminalView | null {
+    const activeView = this.app.workspace.getActiveViewOfType(TerminalView);
+    return activeView;
+  }
+
+  /**
+   * 拆分终端
+   */
+  private async splitTerminal(direction: 'horizontal' | 'vertical'): Promise<void> {
+    const { workspace } = this.app;
+    const newLeaf = workspace.getLeaf('split', direction);
+    
+    await newLeaf.setViewState({
+      type: TERMINAL_VIEW_TYPE,
+      active: true,
+    });
+
+    workspace.setActiveLeaf(newLeaf, { focus: true });
   }
 
   /**

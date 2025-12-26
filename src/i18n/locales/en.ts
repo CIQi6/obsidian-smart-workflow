@@ -28,6 +28,15 @@ export const en: TranslationKeys = {
   commands: {
     generateAiFilename: 'Generate AI Filename',
     openTerminal: 'Open Terminal',
+    terminalSearch: 'Terminal: Search',
+    terminalClear: 'Terminal: Clear',
+    terminalCopy: 'Terminal: Copy Selection',
+    terminalPaste: 'Terminal: Paste',
+    terminalFontIncrease: 'Terminal: Increase Font Size',
+    terminalFontDecrease: 'Terminal: Decrease Font Size',
+    terminalFontReset: 'Terminal: Reset Font Size',
+    terminalSplitHorizontal: 'Terminal: Split Horizontally',
+    terminalSplitVertical: 'Terminal: Split Vertically',
   },
 
   menu: {
@@ -75,6 +84,30 @@ export const en: TranslationKeys = {
     defaultTitle: 'Terminal',
     renameTerminal: 'Rename Terminal',
     renameTerminalPlaceholder: 'Enter terminal name',
+    contextMenu: {
+      copy: 'Copy',
+      copyAsPlainText: 'Copy as Plain Text',
+      paste: 'Paste',
+      selectAll: 'Select All',
+      clear: 'Clear',
+      search: 'Search',
+      copyPath: 'Copy Current Path',
+      openInExplorer: 'Open in File Explorer',
+      newTerminal: 'New Terminal',
+      splitTerminal: 'Split Terminal',
+      splitHorizontal: 'Split Horizontally',
+      splitVertical: 'Split Vertically',
+      fontSize: 'Font Size',
+      fontIncrease: 'Increase',
+      fontDecrease: 'Decrease',
+      fontReset: 'Reset',
+    },
+    search: {
+      placeholder: 'Search...',
+      previous: 'Previous Match',
+      next: 'Next Match',
+      close: 'Close',
+    },
   },
 
   settings: {

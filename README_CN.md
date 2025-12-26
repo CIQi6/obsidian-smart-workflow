@@ -1,5 +1,7 @@
 # Smart Workflow
 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 **Smart Workflow** 是一款强大的 Obsidian 智能工作流插件，通过智能笔记命名和集成终端功能，提升您的知识管理效率。告别起名困难和频繁切换窗口，让一切都在 Obsidian 中高效完成。
 
 ## ✨ 功能特性

@@ -193,6 +193,7 @@ export class SelectionToolbarManager {
         id: 'copy',
         icon: 'copy',
         tooltipKey: 'selectionToolbar.actions.copy',
+        hideAfterExecute: true,
         execute: async (context) => {
           await this.actionExecutor.copyToClipboard(context.text);
         }
@@ -205,6 +206,7 @@ export class SelectionToolbarManager {
         id: 'search',
         icon: 'search',
         tooltipKey: 'selectionToolbar.actions.search',
+        hideAfterExecute: true,
         execute: async (context) => {
           this.actionExecutor.searchInVault(context.text);
         }
@@ -375,18 +377,30 @@ export class SelectionToolbarManager {
   /**
    * 处理动作执行
    * Requirements: 3.6 - 显示成功通知
-   * @returns 新的选中文本（如果有）
+   * @returns 执行结果，包含新文本和是否隐藏工具栏
    */
   private async handleActionExecute(
     action: ToolbarAction, 
     context: SelectionContext
-  ): Promise<string | void> {
+  ): Promise<{ newText?: string; shouldHide: boolean }> {
     try {
       const result = await action.execute(context);
       debugLog(`[SelectionToolbarManager] Action ${action.id} executed successfully`);
-      return result;
+      
+      const shouldHide = action.hideAfterExecute ?? false;
+      
+      // 如果需要隐藏，清除选区以防止重新触发显示
+      if (shouldHide) {
+        window.getSelection()?.removeAllRanges();
+      }
+      
+      return {
+        newText: typeof result === 'string' ? result : undefined,
+        shouldHide
+      };
     } catch (error) {
       debugLog(`[SelectionToolbarManager] Action ${action.id} failed:`, error);
+      return { shouldHide: false };
     }
   }
 

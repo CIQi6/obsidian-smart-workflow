@@ -3,13 +3,14 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![GitHub Downloads](https://img.shields.io/github/downloads/ZyphrZero/obsidian-smart-workflow/total?logo=github&color=blue)](https://github.com/ZyphrZero/obsidian-smart-workflow/releases)
 
-**Smart Workflow** 是一款强大的 Obsidian 智能工作流插件，通过智能笔记命名和集成终端功能，提升您的知识管理效率。告别起名困难和频繁切换窗口，让一切都在 Obsidian 中高效完成。
+> 🎯 **用户体验至上** — 本项目始终将用户交互体验放在首位，追求直观流畅的操作体验，而非功能堆砌。每一个设计决策都以用户的日常使用感受为核心考量。
+
+**Smart Workflow** 是一款强大的 Obsidian 智能工作流插件，提升您的知识管理效率，让一切都在 Obsidian 中高效完成。
 
 ## ✨ 功能特性
 
 ### 🧠 智能笔记命名
 - 支持 OpenAI 兼容 API（GPT、Claude、DeepSeek 等）
-- 多种触发方式：侧边栏、命令面板、右键菜单
 - 多配置管理，快速切换
 - 自定义 Prompt 模板，支持变量注入
 - 支持思考链模型（自动过滤 `<think>` 标签）

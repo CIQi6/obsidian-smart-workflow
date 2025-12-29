@@ -8,7 +8,8 @@ import type { RendererContext } from '../types';
 import type { Provider, ModelConfig } from '../settings';
 import { BaseSettingsRenderer } from './baseRenderer';
 import { 
-  DeleteConfigModal, 
+  DeleteConfigModal,
+  DeleteModelModal,
   ProviderEditModal, 
   ModelEditModal, 
   ModelSelectModal, 
@@ -647,13 +648,19 @@ export class GeneralSettingsRenderer extends BaseSettingsRenderer {
     });
     deleteButton.addEventListener('click', async (e) => {
       e.stopPropagation();
-      try {
-        this.context.configManager.deleteModel(provider.id, model.id);
-        await this.saveSettings();
-        this.refreshDisplay();
-      } catch (error) {
-        new Notice('❌ ' + (error instanceof Error ? error.message : String(error)));
-      }
+      new DeleteModelModal(
+        this.context.app,
+        model.displayName || model.name,
+        async () => {
+          try {
+            this.context.configManager.deleteModel(provider.id, model.id);
+            await this.saveSettings();
+            this.refreshDisplay();
+          } catch (error) {
+            new Notice('❌ ' + (error instanceof Error ? error.message : String(error)));
+          }
+        }
+      ).open();
     });
   }
 

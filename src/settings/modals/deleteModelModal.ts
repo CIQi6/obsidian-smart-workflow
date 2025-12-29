@@ -2,15 +2,15 @@ import { App, Modal, Setting } from 'obsidian';
 import { t } from '../../i18n';
 
 /**
- * 配置删除确认弹窗
+ * 模型删除确认弹窗
  */
-export class DeleteConfigModal extends Modal {
-  private configName: string;
+export class DeleteModelModal extends Modal {
+  private modelName: string;
   private onConfirm: () => void;
 
-  constructor(app: App, configName: string, onConfirm: () => void) {
+  constructor(app: App, modelName: string, onConfirm: () => void) {
     super(app);
-    this.configName = configName;
+    this.modelName = modelName;
     this.onConfirm = onConfirm;
   }
 
@@ -25,7 +25,7 @@ export class DeleteConfigModal extends Modal {
     });
 
     new Setting(contentEl)
-      .setName(t('modals.deleteConfig.title'))
+      .setName(t('modals.deleteModel.title'))
       .setHeading();
 
     // 警告信息
@@ -37,7 +37,7 @@ export class DeleteConfigModal extends Modal {
     });
 
     const warningText = warningContainer.createDiv();
-    warningText.setText(t('modals.deleteConfig.warning', { name: this.configName }));
+    warningText.setText(t('modals.deleteModel.warning', { name: this.modelName }));
     warningText.setCssProps({
       color: 'var(--text-normal)',
       'font-weight': '500'

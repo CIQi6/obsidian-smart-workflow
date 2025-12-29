@@ -305,6 +305,10 @@ export const zhCN: TranslationKeys = {
       title: '⚠️ 确认删除配置',
       warning: '确定要删除配置"{{name}}"吗？此操作无法撤销。',
     },
+    deleteModel: {
+      title: '⚠️ 确认删除模型',
+      warning: '确定要删除模型"{{name}}"吗？此操作无法撤销。',
+    },
     providerEdit: {
       titleAdd: '添加供应商',
       titleEdit: '编辑供应商',

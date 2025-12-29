@@ -15,8 +15,9 @@ import { t } from '../../i18n';
 
 /**
  * 工具栏动作执行回调
+ * @returns { newText?: string, shouldHide: boolean }
  */
-export type ActionCallback = (action: ToolbarAction, context: SelectionContext) => Promise<string | void>;
+export type ActionCallback = (action: ToolbarAction, context: SelectionContext) => Promise<{ newText?: string; shouldHide: boolean }>;
 
 /**
  * 工具栏视图类
@@ -31,7 +32,7 @@ export class ToolbarView {
   private hideTimeoutId: number | null = null;
   
   /** 动作执行回调 */
-  onActionExecute: ActionCallback = async () => {};
+  onActionExecute: ActionCallback = async () => ({ shouldHide: false });
 
   constructor() {
     // 初始化时不创建 DOM，等待 render() 调用
@@ -287,13 +288,19 @@ export class ToolbarView {
       if (!this.currentContext || button.disabled) return;
       
       try {
-        const newText = await this.onActionExecute(action, this.currentContext);
+        const result = await this.onActionExecute(action, this.currentContext);
+        
+        // 根据结果决定是否隐藏工具栏
+        if (result.shouldHide) {
+          this.hideImmediately();
+          return;
+        }
         
         // 如果返回了新文本，更新 context 并刷新按钮状态
-        if (typeof newText === 'string' && this.currentContext) {
+        if (typeof result.newText === 'string' && this.currentContext) {
           this.currentContext = {
             ...this.currentContext,
-            text: newText
+            text: result.newText
           };
           this.updateButtonStates(this.currentContext);
         }

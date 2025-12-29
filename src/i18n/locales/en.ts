@@ -305,6 +305,10 @@ export const en: TranslationKeys = {
       title: '⚠️ Confirm Delete Configuration',
       warning: 'Are you sure you want to delete configuration "{{name}}"? This action cannot be undone.',
     },
+    deleteModel: {
+      title: '⚠️ Confirm Delete Model',
+      warning: 'Are you sure you want to delete model "{{name}}"? This action cannot be undone.',
+    },
     providerEdit: {
       titleAdd: 'Add Provider',
       titleEdit: 'Edit Provider',

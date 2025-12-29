@@ -325,6 +325,10 @@ export interface TranslationKeys {
       title: string;
       warning: string;
     };
+    deleteModel: {
+      title: string;
+      warning: string;
+    };
     // 供应商编辑弹窗
     providerEdit: {
       titleAdd: string;

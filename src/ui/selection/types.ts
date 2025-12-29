@@ -52,6 +52,8 @@ export interface ToolbarAction {
   execute: (context: SelectionContext) => Promise<string | void>;
   /** 检查是否禁用（可选） */
   isDisabled?: (context: SelectionContext) => boolean;
+  /** 执行后是否隐藏工具栏（默认 false） */
+  hideAfterExecute?: boolean;
 }
 
 /**

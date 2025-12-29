@@ -24,6 +24,12 @@ export class SelectionService {
   private isDragging: boolean = false;
   private currentSelection: SelectionContext | null = null;
   
+  /** 右键菜单是否打开（用于暂停选区检测） */
+  private isContextMenuOpen: boolean = false;
+  
+  /** 防抖定时器 ID */
+  private detectTimeoutId: number | null = null;
+  
   /** 选择变化回调 */
   onSelectionChange: SelectionChangeCallback = () => {};
   
@@ -33,6 +39,7 @@ export class SelectionService {
   private boundKeyUp: (e: KeyboardEvent) => void;
   private boundSelectionChange: () => void;
   private boundContextMenu: (e: MouseEvent) => void;
+  private boundDocumentClick: (e: MouseEvent) => void;
 
   constructor(app: App, settings: SelectionToolbarSettings) {
     this.app = app;
@@ -44,6 +51,7 @@ export class SelectionService {
     this.boundKeyUp = this.handleKeyUp.bind(this);
     this.boundSelectionChange = this.handleSelectionChange.bind(this);
     this.boundContextMenu = this.handleContextMenu.bind(this);
+    this.boundDocumentClick = this.handleDocumentClick.bind(this);
   }
 
   /**
@@ -59,7 +67,10 @@ export class SelectionService {
     document.addEventListener('mouseup', this.boundMouseUp);
     document.addEventListener('keyup', this.boundKeyUp);
     document.addEventListener('selectionchange', this.boundSelectionChange);
-    document.addEventListener('contextmenu', this.boundContextMenu);
+    // 使用捕获阶段确保在其他处理器之前执行
+    document.addEventListener('contextmenu', this.boundContextMenu, true);
+    // 监听点击事件以检测右键菜单关闭
+    document.addEventListener('click', this.boundDocumentClick);
     
     this.isListening = true;
   }
@@ -74,9 +85,12 @@ export class SelectionService {
     document.removeEventListener('mouseup', this.boundMouseUp);
     document.removeEventListener('keyup', this.boundKeyUp);
     document.removeEventListener('selectionchange', this.boundSelectionChange);
-    document.removeEventListener('contextmenu', this.boundContextMenu);
+    document.removeEventListener('contextmenu', this.boundContextMenu, true);
+    document.removeEventListener('click', this.boundDocumentClick);
     
+    this.clearDetectTimeout();
     this.isListening = false;
+    this.isContextMenuOpen = false;
     this.currentSelection = null;
   }
 
@@ -98,8 +112,12 @@ export class SelectionService {
    * 处理鼠标按下事件
    * Requirements: 1.5 - 拖动选择时不显示工具栏
    */
-  private handleMouseDown(_e: MouseEvent): void {
+  private handleMouseDown(e: MouseEvent): void {
     this.isDragging = true;
+    // 只有左键按下时才关闭右键菜单状态
+    if (e.button === 0) {
+      this.isContextMenuOpen = false;
+    }
   }
 
   /**
@@ -109,19 +127,19 @@ export class SelectionService {
   private handleMouseUp(e: MouseEvent): void {
     this.isDragging = false;
     
-    // 检查是否点击在工具栏内，如果是则忽略
-    const target = e.target as HTMLElement;
-    if (target?.closest('.selection-toolbar')) {
-      debugLog('[SelectionService] Mouse up on toolbar, skipping');
+    // 右键释放或右键菜单打开期间不处理
+    if (e.button === 2 || this.isContextMenuOpen) {
       return;
     }
     
-    debugLog('[SelectionService] Mouse up detected, target:', e.target);
+    // 检查是否点击在工具栏内，如果是则忽略
+    const target = e.target as HTMLElement;
+    if (target?.closest('.selection-toolbar')) {
+      return;
+    }
     
-    // 延迟检测，确保选区已更新
-    setTimeout(() => {
-      this.detectSelection(e.target as HTMLElement);
-    }, ANIMATION_CONSTANTS.SELECTION_DETECT_DELAY);
+    // 防抖检测
+    this.scheduleDetection(e.target as HTMLElement);
   }
 
   /**
@@ -129,30 +147,46 @@ export class SelectionService {
    * Requirements: 1.2 - 键盘快捷键选择后检测
    */
   private handleKeyUp(e: KeyboardEvent): void {
+    // 右键菜单打开期间不处理
+    if (this.isContextMenuOpen) return;
+    
     // 只处理可能导致选择变化的按键
     const selectionKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'];
     const isSelectionKey = e.shiftKey && selectionKeys.includes(e.key);
     const isSelectAll = (e.ctrlKey || e.metaKey) && e.key === 'a';
     
     if (isSelectionKey || isSelectAll) {
-      setTimeout(() => {
-        this.detectSelection(e.target as HTMLElement);
-      }, ANIMATION_CONSTANTS.SELECTION_DETECT_DELAY);
+      this.scheduleDetection(e.target as HTMLElement);
     }
   }
 
   /**
    * 处理右键菜单事件
-   * 右键菜单关闭后延迟检测选区变化（处理右键全选）
+   * 右键菜单打开时隐藏工具栏并暂停选区检测
    */
   private handleContextMenu(_e: MouseEvent): void {
-    // 延迟检测，等待右键菜单操作完成
-    setTimeout(() => {
-      const selection = window.getSelection();
-      if (selection && !selection.isCollapsed && selection.toString().trim()) {
-        this.detectSelection(document.activeElement as HTMLElement);
-      }
-    }, 300);
+    debugLog('[SelectionService] Context menu opened, hiding toolbar');
+    
+    // 标记右键菜单已打开
+    this.isContextMenuOpen = true;
+    
+    // 立即通知隐藏工具栏（无论当前是否有选区）
+    this.onSelectionChange(null);
+    this.currentSelection = null;
+  }
+
+  /**
+   * 处理文档点击事件
+   * 用于检测右键菜单关闭后恢复选区检测
+   */
+  private handleDocumentClick(_e: MouseEvent): void {
+    if (this.isContextMenuOpen) {
+      debugLog('[SelectionService] Context menu closed via click');
+      this.isContextMenuOpen = false;
+      
+      // 延迟检测选区
+      this.scheduleDetection(document.activeElement as HTMLElement);
+    }
   }
 
   /**
@@ -160,28 +194,56 @@ export class SelectionService {
    * Requirements: 1.4 - 选区清除时隐藏工具栏
    */
   private handleSelectionChange(): void {
-    // 如果正在拖动，不处理（等待 mouseup）
-    if (this.isDragging) return;
+    // 如果正在拖动或右键菜单打开，不处理
+    if (this.isDragging || this.isContextMenuOpen) return;
     
     const selection = window.getSelection();
     
-    // 选区被清除
+    // 选区被清除 - 立即响应
     if (!selection || selection.isCollapsed || selection.toString().trim() === '') {
+      this.clearDetectTimeout();
       if (this.currentSelection) {
         debugLog('[SelectionService] Selection cleared, notifying');
         this.currentSelection = null;
-        // 立即通知选区清除
         this.onSelectionChange(null);
       }
     } else {
-      // 选区存在且有内容，延迟检测（处理右键全选等情况）
-      // 使用较长延迟确保 UI 操作完成
-      setTimeout(() => {
-        const currentSelection = window.getSelection();
-        if (currentSelection && !currentSelection.isCollapsed && currentSelection.toString().trim()) {
-          this.detectSelection(document.activeElement as HTMLElement);
+      // 选区存在且有内容，防抖检测
+      this.scheduleDetection(document.activeElement as HTMLElement);
+    }
+  }
+
+  /**
+   * 调度选区检测（防抖）
+   */
+  private scheduleDetection(target: HTMLElement | null): void {
+    this.clearDetectTimeout();
+    
+    this.detectTimeoutId = window.setTimeout(() => {
+      this.detectTimeoutId = null;
+      
+      if (this.isContextMenuOpen) return;
+      
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+        if (this.currentSelection) {
+          this.currentSelection = null;
+          this.onSelectionChange(null);
         }
-      }, 100);
+        return;
+      }
+      
+      this.detectSelection(target);
+    }, ANIMATION_CONSTANTS.SELECTION_DETECT_DELAY);
+  }
+
+  /**
+   * 清除检测定时器
+   */
+  private clearDetectTimeout(): void {
+    if (this.detectTimeoutId !== null) {
+      window.clearTimeout(this.detectTimeoutId);
+      this.detectTimeoutId = null;
     }
   }
 
@@ -189,15 +251,12 @@ export class SelectionService {
    * 检测并处理选择
    */
   private detectSelection(target: HTMLElement | null): void {
-    debugLog('[SelectionService] Detecting selection, target:', target);
-    
     // 检查是否在 MarkdownView 中（优先使用选区锚点节点）
     const selection = window.getSelection();
     const anchorNode = selection?.anchorNode;
     const checkTarget = (anchorNode instanceof HTMLElement ? anchorNode : anchorNode?.parentElement) || target;
     
     if (!this.isInMarkdownView(checkTarget)) {
-      debugLog('[SelectionService] Not in MarkdownView, skipping');
       // 如果不在 MarkdownView 中且之前有选择，清除选择
       if (this.currentSelection) {
         this.currentSelection = null;
@@ -205,6 +264,8 @@ export class SelectionService {
       }
       return;
     }
+    
+    debugLog('[SelectionService] Detecting selection in MarkdownView');
     
     const context = this.buildSelectionContext();
     debugLog('[SelectionService] Built context:', context);
@@ -279,7 +340,6 @@ export class SelectionService {
     // 获取当前活动视图
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
     if (!activeView) {
-      debugLog('[SelectionService] isInMarkdownView: no active MarkdownView');
       return false;
     }
     
@@ -288,7 +348,6 @@ export class SelectionService {
     // 如果有 target，检查是否在视图容器内
     if (target) {
       const isInView = viewContainer.contains(target);
-      debugLog('[SelectionService] isInMarkdownView:', isInView, 'target:', target);
       if (isInView) return true;
     }
     
@@ -299,12 +358,10 @@ export class SelectionService {
         ? selection.anchorNode 
         : selection.anchorNode.parentElement;
       if (anchorElement && viewContainer.contains(anchorElement)) {
-        debugLog('[SelectionService] isInMarkdownView: true (via anchorNode)');
         return true;
       }
     }
     
-    debugLog('[SelectionService] isInMarkdownView: false');
     return false;
   }
 

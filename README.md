@@ -3,7 +3,9 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![GitHub Downloads](https://img.shields.io/github/downloads/ZyphrZero/obsidian-smart-workflow/total?logo=github&color=blue)](https://github.com/ZyphrZero/obsidian-smart-workflow/releases)
 
-**Smart Workflow** is a powerful Obsidian plugin that streamlines your knowledge management workflow with intelligent note naming and integrated terminal functionality. Say goodbye to naming difficulties and context switching - keep everything organized in one place.
+> 🎯 **User Experience First** — This project prioritizes intuitive interaction and seamless workflow over feature bloat. Every design decision is made with the user's daily experience in mind.
+
+**Smart Workflow** is a powerful Obsidian plugin that enhances your knowledge management efficiency, keeping everything streamlined within Obsidian.
 
 [中文文档](./README_CN.md)
 
@@ -11,7 +13,6 @@
 
 ### 🧠 Intelligent Note Naming
 - OpenAI-compatible API support (GPT, Claude, DeepSeek, etc.)
-- Multiple triggers: sidebar, command palette, right-click menu
 - Multi-config management with quick switching
 - Custom Prompt templates with variable injection
 - Chain-of-thought model support (auto-filters `<think>` tags)

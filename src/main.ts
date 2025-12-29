@@ -125,8 +125,10 @@ export default class SmartWorkflowPlugin extends Plugin {
    */
   get terminalService(): TerminalService {
     if (!this._terminalService) {
+      debugLog('[SmartWorkflowPlugin] Initializing Terminal Service...');
       const pluginDir = this.getPluginDir();
       this._terminalService = new TerminalService(this.app, this.settings.terminal, pluginDir);
+      debugLog('[SmartWorkflowPlugin] Terminal Service initialized');
     }
     return this._terminalService;
   }
@@ -136,11 +138,13 @@ export default class SmartWorkflowPlugin extends Plugin {
    */
   get selectionToolbarManager(): SelectionToolbarManager {
     if (!this._selectionToolbarManager) {
+      debugLog('[SmartWorkflowPlugin] Initializing Selection Toolbar...');
       this._selectionToolbarManager = new SelectionToolbarManager(
         this.app,
         this.settings.selectionToolbar
       );
       this._selectionToolbarManager.initialize();
+      debugLog('[SmartWorkflowPlugin] Selection Toolbar initialized');
     }
     return this._selectionToolbarManager;
   }
@@ -162,12 +166,14 @@ export default class SmartWorkflowPlugin extends Plugin {
     setDebugMode(this.settings.debugMode);
 
     // 初始化核心服务（AI 功能）
+    debugLog('[SmartWorkflowPlugin] Initializing AI Naming Service...');
     this.aiService = new AIService(this.app, this.settings, () => this.saveSettings());
     this.fileNameService = new FileNameService(
       this.app,
       this.aiService,
       this.settings
     );
+    debugLog('[SmartWorkflowPlugin] AI Naming Service initialized');
 
     // 注册终端视图（视图注册不触发服务初始化）
     this.registerView(
@@ -414,6 +420,12 @@ export default class SmartWorkflowPlugin extends Plugin {
     // 注册新标签页中的"打开终端"选项
     if (this.settings.featureVisibility.terminal.showInNewTab) {
       this.registerNewTabTerminalAction();
+    }
+
+    // 初始化选中文字浮动工具栏（如果启用）
+    if (this.settings.selectionToolbar.enabled) {
+      // 触发延迟初始化
+      this.selectionToolbarManager;
     }
   }
 

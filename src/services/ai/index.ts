@@ -19,6 +19,27 @@ export { ConnectionTester, type ConnectionTesterOptions, type ConnectionTestResu
 export { ModelFetcher, type ModelFetcherOptions, type RemoteModelInfo } from './modelFetcher';
 
 // ============================================================================
+// 模型元数据推断
+// ============================================================================
+
+export { inferContextLength, CONTEXT_LENGTH_CONFIGS, DEFAULT_CONTEXT_LENGTH } from './modelContextLengths';
+export {
+  inferModelType,
+  inferModelAbilities,
+  inferModelInfo,
+  createTypeTag,
+  createAbilityTag,
+  createModelTagGroup,
+  TYPE_KEYWORDS,
+  PROVIDER_ABILITY_CONFIG,
+  MODEL_PROVIDER_DETECTION,
+  TYPE_CONFIG,
+  ABILITY_CONFIG,
+  matchesKeywords,
+  detectModelProvider,
+} from './modelTypeInferrer';
+
+// ============================================================================
 // 错误类型导出
 // ============================================================================
 

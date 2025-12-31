@@ -1,7 +1,7 @@
 import { App, Modal, Setting, Notice, setIcon } from 'obsidian';
 import type { ConfigManager } from '../../services/config/configManager';
 import type { ModelConfig, APIFormat, ReasoningEffort } from '../settings';
-import { inferContextLength } from '../../services/naming/modelContextLengths';
+import { inferContextLength } from '../../services/ai';
 import { t } from '../../i18n';
 
 /**

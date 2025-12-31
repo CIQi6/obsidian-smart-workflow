@@ -13,8 +13,8 @@ import { Provider } from '../../settings/settings';
 import { EndpointNormalizer } from './endpointNormalizer';
 import { debugLog } from '../../utils/logger';
 import { t } from '../../i18n';
-import { inferModelType } from '../naming/modelTypeInferrer';
-import { inferContextLength } from '../naming/modelContextLengths';
+import { inferModelType } from './modelTypeInferrer';
+import { inferContextLength } from './modelContextLengths';
 
 // ============================================================================
 // 类型定义

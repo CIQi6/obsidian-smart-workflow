@@ -1,6 +1,6 @@
 import { App, Modal } from 'obsidian';
 import type { Provider } from '../settings';
-import { inferModelInfo, createModelTagGroup } from '../../services/naming/modelTypeInferrer';
+import { inferModelInfo, createModelTagGroup } from '../../services/ai';
 import { t } from '../../i18n';
 
 /**

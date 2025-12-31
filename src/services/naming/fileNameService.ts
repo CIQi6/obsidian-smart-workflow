@@ -1,9 +1,19 @@
+/**
+ * 文件命名服务
+ * 
+ * 职责：
+ * - 调用 AI 生成文件名（prompt 构建、AI 请求、文件名提取）
+ * - 文件操作（读取内容、重命名、冲突处理）
+ */
+
 import { App, TFile } from 'obsidian';
-import { AIService } from './aiService';
+import { SmartWorkflowSettings, BASE_PROMPT_TEMPLATE } from '../../settings/settings';
+import { ConfigManager } from '../config/configManager';
 import { FileAnalyzer } from './fileAnalyzer';
-import { SmartWorkflowSettings } from '../../settings/settings';
 import { debugLog, debugWarn } from '../../utils/logger';
 import { t } from '../../i18n';
+import { AIClient } from '../ai';
+import { AIError, isAIError } from '../ai/errors';
 
 /**
  * 生成文件名结果接口
@@ -32,60 +42,61 @@ export interface RenameResult {
 }
 
 /**
- * 文件名服务类
- * 负责文件读取、文件名生成和文件重命名
+ * 文件命名服务类
  */
 export class FileNameService {
+  private configManager: ConfigManager;
   private fileAnalyzer: FileAnalyzer;
 
   constructor(
     private app: App,
-    private aiService: AIService,
-    private settings: SmartWorkflowSettings
+    private settings: SmartWorkflowSettings,
+    onSettingsChange?: () => Promise<void>
   ) {
+    this.configManager = new ConfigManager(settings, onSettingsChange);
     this.fileAnalyzer = new FileAnalyzer();
   }
 
+  // ============================================================================
+  // 公共 API
+  // ============================================================================
+
   /**
-   * 仅生成文件名（不执行重命名）
-   * @param file 目标文件
-   * @returns 生成结果
+   * 获取 ConfigManager 实例
+   */
+  getConfigManager(): ConfigManager {
+    return this.configManager;
+  }
+
+  /**
+   * 生成文件名（不执行重命名）
    */
   async generateFileName(file: TFile): Promise<GenerateResult> {
-    // 读取文件内容
     const content = await this.app.vault.read(file);
-
-    // 获取当前文件名（不含扩展名）
     const currentFileName = file.basename;
 
-    // 根据配置决定是否分析目录命名风格
-    let directoryNamingStyle: string | undefined = undefined;
+    // 分析目录命名风格
+    let directoryNamingStyle: string | undefined;
     if (this.settings.analyzeDirectoryNamingStyle) {
-      if (this.settings.debugMode) {
-        debugLog('[FileNameService] 开始分析目录命名风格...');
-      }
       try {
-        directoryNamingStyle = this.fileAnalyzer.analyzeDirectoryNamingStyle(file, this.settings.debugMode);
-        if (this.settings.debugMode) {
-          debugLog('[FileNameService] 目录命名风格分析完成:', directoryNamingStyle || '(空)');
-        }
+        directoryNamingStyle = this.fileAnalyzer.analyzeDirectoryNamingStyle(
+          file, 
+          this.settings.debugMode
+        );
       } catch (error) {
         debugWarn('[FileNameService] 分析目录命名风格失败:', error);
       }
     }
 
-    // 调用 AI 服务生成新文件名
-    const newFileName = await this.aiService.generateFileName(
+    // 调用 AI 生成文件名
+    const newFileName = await this.generateFileNameFromAI(
       content,
       currentFileName,
       directoryNamingStyle
     );
 
-    // 验证和清理文件名
     const sanitizedFileName = this.sanitizeFileName(newFileName);
     const sanitizedCurrentFileName = this.sanitizeFileName(currentFileName);
-
-    // 检查文件名是否实际改变
     const isSame = sanitizedFileName.toLowerCase() === sanitizedCurrentFileName.toLowerCase();
 
     return {
@@ -97,24 +108,15 @@ export class FileNameService {
 
   /**
    * 执行文件重命名
-   * @param file 目标文件
-   * @param newFileName 新文件名（不含扩展名）
-   * @returns 重命名结果
    */
   async renameFile(file: TFile, newFileName: string): Promise<RenameResult> {
     const currentFileName = file.basename;
     const sanitizedFileName = this.sanitizeFileName(newFileName);
-
-    // 构建新路径
     const newPath = this.buildNewPath(file, sanitizedFileName);
-
-    // 检查文件名冲突
     const finalPath = await this.resolveConflict(newPath);
 
-    // 执行重命名
     await this.app.fileManager.renameFile(file, finalPath);
 
-    // 提取最终文件名
     const finalFileName = finalPath.split('/').pop()?.replace(/\.[^.]+$/, '') || sanitizedFileName;
 
     return {
@@ -126,15 +128,11 @@ export class FileNameService {
   }
 
   /**
-   * 生成文件名并重命名文件
-   * @param file 目标文件
-   * @returns 重命名结果
+   * 生成文件名并重命名
    */
   async generateAndRename(file: TFile): Promise<RenameResult> {
-    // 复用 generateFileName 方法
     const generateResult = await this.generateFileName(file);
 
-    // 检查文件名是否实际改变
     if (generateResult.isSame) {
       if (this.settings.debugMode) {
         debugLog('[FileNameService] 生成的文件名与当前文件名相同，跳过重命名');
@@ -147,31 +145,208 @@ export class FileNameService {
       };
     }
 
-    // 执行重命名
     return this.renameFile(file, generateResult.newName);
   }
 
   /**
-   * 清理文件名，移除非法字符
-   * @param fileName 原始文件名
-   * @returns 清理后的文件名
+   * 验证文件名是否合法
+   */
+  validateFileName(fileName: string): boolean {
+    if (/[\\/:*?"<>|]/.test(fileName)) return false;
+    if (!fileName || fileName.trim() === '') return false;
+    if (fileName.length > 100) return false;
+    return true;
+  }
+
+  // ============================================================================
+  // AI 文件名生成（原 NamingService 逻辑）
+  // ============================================================================
+
+  /**
+   * 调用 AI 生成文件名
+   */
+  private async generateFileNameFromAI(
+    content: string,
+    currentFileName?: string,
+    directoryNamingStyle?: string
+  ): Promise<string> {
+    const resolvedConfig = this.configManager.resolveFeatureConfig('naming');
+
+    if (!resolvedConfig) {
+      throw new Error(t('aiService.configNotResolved'));
+    }
+
+    const { provider, model, promptTemplate } = resolvedConfig;
+    const prompt = this.preparePrompt(content, promptTemplate, currentFileName, directoryNamingStyle);
+
+    if (this.settings.debugMode) {
+      debugLog('[FileNameService] 发送给 AI 的 Prompt:');
+      debugLog('='.repeat(50));
+      debugLog(prompt);
+      debugLog('='.repeat(50));
+      debugLog(`[FileNameService] 使用供应商: ${provider.name}, 模型: ${model.displayName}`);
+    }
+
+    try {
+      const aiClient = new AIClient({
+        provider,
+        model,
+        timeout: this.settings.timeout || 15000,
+        debugMode: this.settings.debugMode,
+      });
+
+      const response = await aiClient.request({ prompt });
+      return this.extractFileName(response.content);
+    } catch (error) {
+      throw this.handleRequestError(error);
+    }
+  }
+
+  /**
+   * 准备 prompt
+   */
+  private preparePrompt(
+    content: string,
+    promptTemplate: string,
+    currentFileName?: string,
+    directoryNamingStyle?: string
+  ): string {
+    const truncatedContent = this.smartTruncateContent(content);
+
+    let template = promptTemplate;
+    if (!this.settings.useCurrentFileNameContext) {
+      template = BASE_PROMPT_TEMPLATE;
+    }
+
+    const variables: Record<string, string> = {
+      content: truncatedContent,
+      currentFileName: (this.settings.useCurrentFileNameContext && currentFileName) ? currentFileName : '',
+      directoryNamingStyle: directoryNamingStyle || ''
+    };
+
+    return this.renderPrompt(template, variables);
+  }
+
+  /**
+   * 从 AI 响应中提取文件名
+   */
+  private extractFileName(content: string): string {
+    let processedContent = content.trim();
+
+    // 多行内容处理
+    const lines = processedContent.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    if (lines.length > 1) {
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i];
+        if (line.includes('文件名：') || line.includes('文件名:')) {
+          processedContent = line.split(/文件名[：:]/)[1]?.trim() || line;
+          break;
+        } else if (line.toLowerCase().includes('title:')) {
+          processedContent = line.split(/title:/i)[1]?.trim() || line;
+          break;
+        }
+      }
+      if (processedContent === content.trim()) {
+        processedContent = lines[lines.length - 1];
+      }
+    }
+
+    // 移除引号包裹
+    let fileName = processedContent;
+    if ((fileName.startsWith('"') && fileName.endsWith('"')) ||
+      (fileName.startsWith("'") && fileName.endsWith("'")) ||
+      (fileName.startsWith('《') && fileName.endsWith('》')) ||
+      (fileName.startsWith('`') && fileName.endsWith('`'))) {
+      fileName = fileName.substring(1, fileName.length - 1);
+    }
+
+    // 移除 .md 扩展名
+    if (fileName.toLowerCase().endsWith('.md')) {
+      fileName = fileName.substring(0, fileName.length - 3);
+    }
+
+    // 移除前缀
+    fileName = fileName.replace(/^(文件名[：:]|Title:\s*)/i, '').trim();
+
+    // 限制长度
+    if (fileName.length > 100) {
+      fileName = fileName.substring(0, 100);
+    }
+
+    fileName = fileName.trim();
+
+    if (!fileName) {
+      throw new Error(t('aiService.emptyFileName'));
+    }
+
+    return fileName;
+  }
+
+  /**
+   * 智能截取内容
+   */
+  private smartTruncateContent(content: string, maxChars = 3000): string {
+    if (content.length <= maxChars) return content;
+
+    const headChars = Math.floor(maxChars * 0.6);
+    const tailChars = Math.floor(maxChars * 0.3);
+
+    const head = content.substring(0, headChars);
+    const tail = content.substring(content.length - tailChars);
+
+    return `${head}\n\n[... Content truncated due to length. Total ${content.length} characters, showing first ${headChars} and last ${tailChars} characters ...]\n\n${tail}`;
+  }
+
+  /**
+   * 渲染 Prompt 模板
+   */
+  private renderPrompt(template: string, variables: Record<string, string>): string {
+    let result = template;
+
+    // 条件块
+    result = result.replace(/\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_, varName, content) => {
+      return variables[varName] ? content : '';
+    });
+
+    // 变量替换
+    result = result.replace(/\{\{(\w+)\}\}/g, (_, varName) => {
+      return variables[varName] || '';
+    });
+
+    return result;
+  }
+
+  /**
+   * 统一错误处理
+   */
+  private handleRequestError(error: unknown): Error {
+    if (isAIError(error)) {
+      const aiError = error as AIError;
+      if (aiError.code === 'UNSUPPORTED_API_FORMAT') {
+        const hint = t('aiService.unsupportedApiFormatHint');
+        return new Error(`${aiError.message}\n${hint}`);
+      }
+      return aiError;
+    }
+    if (error instanceof Error) return error;
+    return new Error(t('aiService.networkError', { message: String(error) }));
+  }
+
+  // ============================================================================
+  // 文件操作辅助方法
+  // ============================================================================
+
+  /**
+   * 清理文件名
    */
   private sanitizeFileName(fileName: string): string {
-    // 移除 Windows 和 Unix 系统不允许的字符
     let sanitized = fileName.replace(/[\\/:*?"<>|]/g, '');
+    sanitized = sanitized.trim().replace(/\s+/g, ' ');
 
-    // 移除前后空格
-    sanitized = sanitized.trim();
-
-    // 移除多余的空格
-    sanitized = sanitized.replace(/\s+/g, ' ');
-
-    // 限制长度（最多 100 个字符）
     if (sanitized.length > 100) {
       sanitized = sanitized.substring(0, 100).trim();
     }
 
-    // 如果清理后为空，使用默认名称
     if (!sanitized) {
       throw new Error(t('fileNameService.invalidFileName'));
     }
@@ -181,38 +356,25 @@ export class FileNameService {
 
   /**
    * 构建新路径
-   * @param file 原文件
-   * @param newFileName 新文件名（不含扩展名）
-   * @returns 新路径
    */
   private buildNewPath(file: TFile, newFileName: string): string {
     const extension = file.extension;
     const directory = file.parent?.path || '';
 
-    if (directory) {
-      return `${directory}/${newFileName}.${extension}`;
-    } else {
-      return `${newFileName}.${extension}`;
-    }
+    return directory ? `${directory}/${newFileName}.${extension}` : `${newFileName}.${extension}`;
   }
 
   /**
    * 解决文件名冲突
-   * @param path 目标路径
-   * @returns 解决冲突后的路径
    */
   private async resolveConflict(path: string): Promise<string> {
     let finalPath = path;
     let counter = 1;
 
-    // 检查文件是否存在
     while (await this.app.vault.adapter.exists(finalPath)) {
-      // 提取文件名和扩展名
       const match = path.match(/^(.+)\.([^.]+)$/);
       if (match) {
-        const baseName = match[1];
-        const extension = match[2];
-        finalPath = `${baseName} ${counter}.${extension}`;
+        finalPath = `${match[1]} ${counter}.${match[2]}`;
       } else {
         finalPath = `${path} ${counter}`;
       }
@@ -220,29 +382,5 @@ export class FileNameService {
     }
 
     return finalPath;
-  }
-
-  /**
-   * 验证文件名是否合法
-   * @param fileName 文件名
-   * @returns 是否合法
-   */
-  validateFileName(fileName: string): boolean {
-    // 检查是否包含非法字符
-    if (/[\\/:*?"<>|]/.test(fileName)) {
-      return false;
-    }
-
-    // 检查是否为空
-    if (!fileName || fileName.trim() === '') {
-      return false;
-    }
-
-    // 检查长度
-    if (fileName.length > 100) {
-      return false;
-    }
-
-    return true;
   }
 }

@@ -1,7 +1,6 @@
 import { Plugin, TFile, Menu, MarkdownView, WorkspaceLeaf, Modal, Setting } from 'obsidian';
 import { SmartWorkflowSettings, DEFAULT_SETTINGS } from './settings/settings';
 import { SmartWorkflowSettingTab } from './settings/settingsTab';
-import { AIService } from './services/naming/aiService';
 import { FileNameService } from './services/naming/fileNameService';
 import { NoticeHelper } from './ui/noticeHelper';
 import { TerminalService } from './services/terminal/terminalService';
@@ -108,7 +107,6 @@ class RenameConfirmModal extends Modal {
  */
 export default class SmartWorkflowPlugin extends Plugin {
   settings: SmartWorkflowSettings;
-  aiService: AIService;
   fileNameService: FileNameService;
   generatingFiles: Set<string> = new Set();
   
@@ -167,15 +165,14 @@ export default class SmartWorkflowPlugin extends Plugin {
     // 初始化调试模式
     setDebugMode(this.settings.debugMode);
 
-    // 初始化核心服务（AI 功能）
-    debugLog('[SmartWorkflowPlugin] Initializing AI Naming Service...');
-    this.aiService = new AIService(this.app, this.settings, () => this.saveSettings());
+    // 初始化核心服务（AI 命名功能）
+    debugLog('[SmartWorkflowPlugin] Initializing FileNameService...');
     this.fileNameService = new FileNameService(
       this.app,
-      this.aiService,
-      this.settings
+      this.settings,
+      () => this.saveSettings()
     );
-    debugLog('[SmartWorkflowPlugin] AI Naming Service initialized');
+    debugLog('[SmartWorkflowPlugin] FileNameService initialized');
 
     // 注册终端视图（视图注册不触发服务初始化）
     this.registerView(

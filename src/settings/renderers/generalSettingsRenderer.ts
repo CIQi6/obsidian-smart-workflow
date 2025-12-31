@@ -20,8 +20,7 @@ import {
   shortenEndpoint, 
   formatContextLength 
 } from '../utils/settingsUtils';
-import { inferModelInfo, createModelTagGroup } from '../../services/naming/modelTypeInferrer';
-import { inferContextLength } from '../../services/naming/modelContextLengths';
+import { inferModelInfo, createModelTagGroup, inferContextLength, ConnectionTester } from '../../services/ai';
 import { t } from '../../i18n';
 
 /**
@@ -698,8 +697,18 @@ export class GeneralSettingsRenderer extends BaseSettingsRenderer {
   private async doTestConnection(provider: Provider, modelId: string): Promise<void> {
     new Notice('🔄 ' + t('notices.testingConnection'));
 
+    const model = provider.models.find(m => m.id === modelId);
+    if (!model) {
+      new Notice('❌ ' + t('notices.connectionFailed', { message: 'Model not found' }));
+      return;
+    }
+
     try {
-      await this.context.plugin.aiService.testConnection(provider.id, modelId);
+      const tester = new ConnectionTester({
+        timeout: this.context.plugin.settings.timeout || 15000,
+        debugMode: this.context.plugin.settings.debugMode,
+      });
+      await tester.testConnection(provider, model);
       new Notice('✅ ' + t('notices.connectionSuccess'));
     } catch (error) {
       new Notice('❌ ' + t('notices.connectionFailed', { 

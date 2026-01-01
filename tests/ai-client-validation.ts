@@ -27,7 +27,7 @@ interface ModelConfig {
   name: string;
   displayName: string;
   temperature: number;
-  maxTokens: number;
+  maxOutputTokens: number;
   topP: number;
   apiFormat?: 'chat-completions' | 'responses';
   reasoningEffort?: 'low' | 'medium' | 'high';
@@ -88,7 +88,7 @@ const validModel: ModelConfig = {
   name: 'gpt-4',
   displayName: 'GPT-4',
   temperature: 0.7,
-  maxTokens: 1000,
+  maxOutputTokens: 1000,
   topP: 0.9,
   apiFormat: 'chat-completions'
 };
@@ -168,8 +168,8 @@ function buildChatCompletionsRequest(
     top_p: model.topP,
   };
 
-  if (model.maxTokens && model.maxTokens > 0) {
-    request.max_tokens = model.maxTokens;
+  if (model.maxOutputTokens && model.maxOutputTokens > 0) {
+    request.max_tokens = model.maxOutputTokens;
   }
 
   request.stream = stream;
@@ -202,8 +202,8 @@ function buildResponsesRequest(
     reasoning: { effort: reasoningEffort },
   };
 
-  if (model.maxTokens && model.maxTokens > 0) {
-    request.max_output_tokens = model.maxTokens;
+  if (model.maxOutputTokens && model.maxOutputTokens > 0) {
+    request.max_output_tokens = model.maxOutputTokens;
   }
 
   request.stream = stream;

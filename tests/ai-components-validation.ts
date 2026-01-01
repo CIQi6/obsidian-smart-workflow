@@ -184,7 +184,7 @@ interface ModelConfig {
   name: string;
   displayName: string;
   temperature: number;
-  maxTokens: number;
+  maxOutputTokens: number;
   topP: number;
   apiFormat?: 'chat-completions' | 'responses';
   reasoningEffort?: 'low' | 'medium' | 'high';
@@ -195,7 +195,7 @@ const chatModel: ModelConfig = {
   name: 'gpt-4',
   displayName: 'GPT-4',
   temperature: 0.7,
-  maxTokens: 1000,
+  maxOutputTokens: 1000,
   topP: 0.9,
   apiFormat: 'chat-completions'
 };
@@ -208,7 +208,7 @@ const chatRequest = {
   ],
   temperature: chatModel.temperature,
   top_p: chatModel.topP,
-  max_tokens: chatModel.maxTokens,
+  max_tokens: chatModel.maxOutputTokens,
   stream: false
 };
 
@@ -226,7 +226,7 @@ const responsesModel: ModelConfig = {
   name: 'o3-mini',
   displayName: 'O3 Mini',
   temperature: 0.7,
-  maxTokens: 2000,
+  maxOutputTokens: 2000,
   topP: 0.9,
   apiFormat: 'responses',
   reasoningEffort: 'medium'
@@ -241,7 +241,7 @@ const responsesRequest = {
   reasoning: {
     effort: responsesModel.reasoningEffort
   },
-  max_output_tokens: responsesModel.maxTokens,
+  max_output_tokens: responsesModel.maxOutputTokens,
   stream: false
 };
 

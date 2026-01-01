@@ -1,7 +1,7 @@
 import { App, Modal, Setting, Notice, setIcon } from 'obsidian';
 import type { ConfigManager } from '../../services/config/configManager';
 import type { ModelConfig, APIFormat, ReasoningEffort } from '../settings';
-import { inferContextLength } from '../../services/ai';
+import { inferContextLength, inferOutputTokenLimit } from '../../services/ai';
 import { t } from '../../i18n';
 
 /**
@@ -49,7 +49,7 @@ export class ModelEditModal extends Modal {
       name: string;
       displayName: string;
       temperature: number;
-      maxTokens: number;
+      maxOutputTokens: number;
       topP: number;
       apiFormat: APIFormat;
       reasoningEffort: ReasoningEffort;
@@ -58,7 +58,7 @@ export class ModelEditModal extends Modal {
       name: this.model?.name || '',
       displayName: this.model?.displayName || '',
       temperature: this.model?.temperature ?? 0.7,
-      maxTokens: this.model?.maxTokens ?? 0,
+      maxOutputTokens: this.model?.maxOutputTokens ?? 0,
       topP: this.model?.topP ?? 1.0,
       apiFormat: this.model?.apiFormat ?? 'chat-completions',
       reasoningEffort: this.model?.reasoningEffort ?? 'medium',
@@ -143,48 +143,65 @@ export class ModelEditModal extends Modal {
     // 初始化推理配置可见性
     updateReasoningVisibility(formData.apiFormat === 'responses');
 
-    // Max Context Window (带节点的拖动条 + 输入框)
-    // 节点值：0(自动), 4K, 8K, 16K, 32K, 64K, 1M, 2M
-    const contextWindowSteps = [0, 4096, 8192, 16384, 32768, 65536, 1048576, 2097152];
-    const contextWindowLabels = [t('common.auto'), '4K', '8K', '16K', '32K', '64K', '1M', '2M'];
-    
-    // 格式化显示值：0 显示为"自动"，其他显示数字
-    const formatContextValue = (value: number): string => {
-      return value === 0 ? t('common.auto') : String(value);
-    };
+    // ============================================================================
+    // Token 配置区域
+    // ============================================================================
 
-    // 解析输入值："自动"或空字符串解析为 0
-    const parseContextValue = (input: string): number => {
-      const trimmed = input.trim();
-      if (trimmed === '' || trimmed === t('common.auto') || trimmed.toLowerCase() === 'auto') {
-        return 0;
+    // 格式化 token 数量显示（如 128K、1M）
+    const formatTokenCount = (tokens: number): string => {
+      if (tokens <= 0) return t('common.auto');
+      if (tokens >= 1000000) {
+        return `${(tokens / 1000000).toFixed(1)}M`;
+      } else if (tokens >= 1000) {
+        return `${Math.round(tokens / 1000)}K`;
       }
-      const num = parseInt(trimmed);
-      return isNaN(num) || num < 0 ? -1 : num; // -1 表示无效输入
+      return String(tokens);
     };
 
-    // 找到当前值对应的步骤索引
-    const findClosestStepIndex = (value: number): number => {
-      if (value <= 0) return 0;
-      let closestIndex = 0;
-      let minDiff = Math.abs(contextWindowSteps[0] - value);
-      for (let i = 1; i < contextWindowSteps.length; i++) {
-        const diff = Math.abs(contextWindowSteps[i] - value);
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestIndex = i;
-        }
-      }
-      return closestIndex;
+    // 上下文长度只读展示（信息性显示）
+    const contextLengthSetting = new Setting(contentEl)
+      .setName(t('settingsDetails.general.contextLength'))
+      .setDesc(t('settingsDetails.general.contextLengthDesc'));
+
+    // 创建只读显示元素
+    const contextLengthDisplay = contextLengthSetting.controlEl.createSpan({
+      cls: 'context-length-display'
+    });
+    contextLengthDisplay.setCssProps({
+      'font-family': 'var(--font-monospace)',
+      'font-size': '0.9em',
+      'color': 'var(--text-muted)',
+      'padding': '4px 8px',
+      'background': 'var(--background-secondary)',
+      'border-radius': '4px'
+    });
+
+    // 更新上下文长度显示的函数
+    const updateContextLengthDisplay = () => {
+      const inferredContext = formData.name ? inferContextLength(formData.name) : 0;
+      contextLengthDisplay.setText(inferredContext > 0 ? formatTokenCount(inferredContext) : '—');
     };
 
-    const maxTokensSetting = new Setting(contentEl)
-      .setName(t('settingsDetails.general.maxTokens'))
-      .setDesc(t('settingsDetails.general.maxTokensDesc'));
+    // 初始化显示
+    updateContextLengthDisplay();
+
+    // 最大输出 Token 编辑控件
+    const maxOutputTokensSetting = new Setting(contentEl)
+      .setName(t('settingsDetails.general.maxOutputTokens'))
+      .setDesc(t('settingsDetails.general.maxOutputTokensDesc'));
 
     // 创建自定义控件容器
-    const controlContainer = maxTokensSetting.controlEl.createDiv({ cls: 'context-window-control' });
+    const controlContainer = maxOutputTokensSetting.controlEl.createDiv({ cls: 'output-tokens-control' });
     controlContainer.setCssProps({
+      display: 'flex',
+      'flex-direction': 'column',
+      gap: '8px',
+      width: '100%'
+    });
+
+    // 滑块 + 输入框行
+    const sliderRow = controlContainer.createDiv({ cls: 'slider-row' });
+    sliderRow.setCssProps({
       display: 'flex',
       'align-items': 'center',
       gap: '12px',
@@ -192,90 +209,137 @@ export class ModelEditModal extends Modal {
     });
 
     // 滑块容器
-    const sliderContainer = controlContainer.createDiv({ cls: 'slider-container' });
+    const sliderContainer = sliderRow.createDiv({ cls: 'slider-container' });
     sliderContainer.setCssProps({
       flex: '1',
-      'min-width': '200px',
-      display: 'flex',
-      'flex-direction': 'column',
-      gap: '4px'
+      'min-width': '200px'
     });
 
+    // 获取当前模型的输出 token 限制
+    const getOutputLimit = () => formData.name ? inferOutputTokenLimit(formData.name) : 8192;
+
     // 滑块
-    const contextSlider = sliderContainer.createEl('input', {
+    const outputSlider = sliderContainer.createEl('input', {
       type: 'range',
       cls: 'slider'
     });
-    contextSlider.min = '0';
-    contextSlider.max = String(contextWindowSteps.length - 1);
-    contextSlider.value = String(findClosestStepIndex(formData.maxTokens));
-    contextSlider.setCssProps({
+    outputSlider.min = '0';
+    outputSlider.max = String(getOutputLimit());
+    outputSlider.step = '256';
+    outputSlider.value = String(formData.maxOutputTokens);
+    outputSlider.setCssProps({
       width: '100%'
     });
 
-    // 刻度标签容器
-    const ticksContainer = sliderContainer.createDiv({ cls: 'slider-ticks' });
-    ticksContainer.setCssProps({
-      display: 'flex',
-      'justify-content': 'space-between',
-      'font-size': '0.7em',
-      color: 'var(--text-muted)',
-      'padding': '0 2px'
-    });
-
-    // 添加刻度标签
-    contextWindowLabels.forEach(label => {
-      const tick = ticksContainer.createSpan();
-      tick.setText(label);
-    });
-
     // 输入框
-    const contextInput = controlContainer.createEl('input', {
+    const outputInput = sliderRow.createEl('input', {
       type: 'text',
-      cls: 'context-window-input'
+      cls: 'output-tokens-input'
     });
-    contextInput.value = formatContextValue(formData.maxTokens);
-    contextInput.setCssProps({
-      width: '70px',
+    outputInput.value = formData.maxOutputTokens === 0 ? t('common.auto') : String(formData.maxOutputTokens);
+    outputInput.setCssProps({
+      width: '80px',
       'text-align': 'center',
       padding: '4px 8px'
     });
 
-    // 重置图标按钮
-    const resetIconBtn = controlContainer.createEl('button', {
+    // 重置按钮（重置为 0/自动）
+    const resetBtn = sliderRow.createEl('button', {
       cls: 'clickable-icon'
     });
-    resetIconBtn.setAttribute('aria-label', t('common.reset'));
-    setIcon(resetIconBtn, 'rotate-ccw');
-    resetIconBtn.addEventListener('click', () => {
-      // 根据当前模型 ID 推断默认值
-      const inferredValue = formData.name ? inferContextLength(formData.name) : 0;
-      formData.maxTokens = inferredValue;
-      contextSlider.value = String(findClosestStepIndex(inferredValue));
-      contextInput.value = formatContextValue(inferredValue);
+    resetBtn.setAttribute('aria-label', t('common.reset'));
+    setIcon(resetBtn, 'rotate-ccw');
+
+    // 警告提示容器
+    const warningContainer = controlContainer.createDiv({ cls: 'output-tokens-warning' });
+    warningContainer.setCssProps({
+      display: 'none',
+      'font-size': '0.85em',
+      'color': 'var(--text-warning)',
+      'padding': '4px 8px',
+      'background': 'var(--background-modifier-warning)',
+      'border-radius': '4px'
     });
 
-    // 滑块变化时更新输入框和 formData
-    contextSlider.addEventListener('input', () => {
-      const stepIndex = parseInt(contextSlider.value);
-      const value = contextWindowSteps[stepIndex];
-      formData.maxTokens = value;
-      contextInput.value = formatContextValue(value);
+    // 更新警告显示的函数
+    const updateWarning = () => {
+      const limit = getOutputLimit();
+      if (formData.maxOutputTokens > 0 && formData.maxOutputTokens > limit) {
+        warningContainer.setText(t('settingsDetails.general.outputTokensWarning', { limit: formatTokenCount(limit) }));
+        warningContainer.setCssProps({ display: 'block' });
+      } else {
+        warningContainer.setCssProps({ display: 'none' });
+      }
+    };
+
+    // 更新滑块范围的函数（当模型 ID 变化时调用）
+    const updateSliderRange = () => {
+      const limit = getOutputLimit();
+      outputSlider.max = String(limit);
+      // 如果当前值超过新限制，调整滑块位置（但保留用户输入的值）
+      if (formData.maxOutputTokens > limit) {
+        outputSlider.value = String(limit);
+      }
+      updateWarning();
+    };
+
+    // 格式化输出值显示
+    const formatOutputValue = (value: number): string => {
+      return value === 0 ? t('common.auto') : String(value);
+    };
+
+    // 解析输入值
+    const parseOutputValue = (input: string): number => {
+      const trimmed = input.trim();
+      if (trimmed === '' || trimmed === t('common.auto') || trimmed.toLowerCase() === 'auto') {
+        return 0;
+      }
+      const num = parseInt(trimmed);
+      return isNaN(num) || num < 0 ? -1 : num;
+    };
+
+    // 滑块变化事件
+    outputSlider.addEventListener('input', () => {
+      const value = parseInt(outputSlider.value);
+      formData.maxOutputTokens = value;
+      outputInput.value = formatOutputValue(value);
+      updateWarning();
     });
 
-    // 输入框变化时更新滑块和 formData
-    contextInput.addEventListener('change', () => {
-      const parsedValue = parseContextValue(contextInput.value);
-
+    // 输入框变化事件
+    outputInput.addEventListener('change', () => {
+      const parsedValue = parseOutputValue(outputInput.value);
       if (parsedValue >= 0) {
-        formData.maxTokens = parsedValue;
-        contextSlider.value = String(findClosestStepIndex(parsedValue));
-        contextInput.value = formatContextValue(parsedValue);
+        formData.maxOutputTokens = parsedValue;
+        outputSlider.value = String(Math.min(parsedValue, parseInt(outputSlider.max)));
+        outputInput.value = formatOutputValue(parsedValue);
+        updateWarning();
       } else {
         // 无效输入，恢复原值
-        contextInput.value = formatContextValue(formData.maxTokens);
+        outputInput.value = formatOutputValue(formData.maxOutputTokens);
       }
     });
+
+    // 重置按钮事件
+    resetBtn.addEventListener('click', () => {
+      formData.maxOutputTokens = 0;
+      outputSlider.value = '0';
+      outputInput.value = t('common.auto');
+      updateWarning();
+    });
+
+    // 监听模型 ID 输入框变化，更新上下文长度显示和滑块范围
+    const modelNameInput = contentEl.querySelector('input[placeholder*="gpt-4o"]') as HTMLInputElement;
+    if (modelNameInput) {
+      modelNameInput.addEventListener('input', () => {
+        formData.name = modelNameInput.value;
+        updateContextLengthDisplay();
+        updateSliderRange();
+      });
+    }
+
+    // 初始化警告状态
+    updateWarning();
 
     // Temperature
     new Setting(contentEl)
@@ -335,7 +399,7 @@ export class ModelEditModal extends Modal {
           name: formData.name.trim(),
           displayName: displayName,
           temperature: formData.temperature,
-          maxTokens: formData.maxTokens,
+          maxOutputTokens: formData.maxOutputTokens,
           topP: formData.topP,
           apiFormat: formData.apiFormat,
         };

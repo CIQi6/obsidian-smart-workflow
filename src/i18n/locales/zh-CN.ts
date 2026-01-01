@@ -144,8 +144,11 @@ export const zhCN: TranslationKeys = {
       apiKeyDesc: '您的 API 密钥',
       temperature: 'Temperature',
       temperatureDesc: '控制输出的随机性。较低的值产生更确定、一致的结果；较高的值产生更多样化、有创意的结果',
-      maxTokens: 'Max Tokens',
-      maxTokensDesc: '模型的最大令牌数。',
+      contextLength: '上下文长度',
+      contextLengthDesc: '此模型的最大上下文窗口大小（只读，根据模型 ID 自动推断）',
+      maxOutputTokens: '最大输出 Token',
+      maxOutputTokensDesc: '模型单次响应可生成的最大 token 数。设为 0（自动）则使用 API 默认值。',
+      outputTokensWarning: '警告：值超过推荐限制（{{limit}}），可能导致 API 错误。',
       topP: 'Top P',
       topPDesc: '控制词汇多样性。较低的值产生更常见、简洁的词汇；较高的值产生更广泛的词汇。推荐：保持默认值 1.0',
       timeout: '请求超时（秒）',
@@ -536,6 +539,7 @@ export const zhCN: TranslationKeys = {
       inlineCode: '代码',
       inlineMath: '公式',
       clearFormat: '清除',
+      translate: '翻译',
       copySuccess: '已复制到剪贴板',
       copyFailed: '复制到剪贴板失败',
       searchSuccess: '正在仓库中搜索',
@@ -661,6 +665,56 @@ export const zhCN: TranslationKeys = {
     // 应用视图
     applyView: {
       title: '写作润色',
+    },
+  },
+
+  // 翻译功能
+  translation: {
+    // 模态窗口
+    modal: {
+      sourceLanguage: '源语言',
+      targetLanguage: '目标语言',
+      originalText: '原文',
+      translatedText: '译文',
+      thinkingProcess: 'AI 思考过程',
+      showOriginal: '显示原文',
+      hideOriginal: '隐藏原文',
+      showThinking: '显示思考过程',
+      hideThinking: '隐藏思考过程',
+      translating: '正在翻译...',
+      completed: '翻译完成',
+      detectedAs: '检测为',
+      copy: '复制',
+      replace: '替换',
+      retry: '重试',
+    },
+    // 工具栏
+    toolbar: {
+      translate: '翻译',
+    },
+    // 错误消息
+    errors: {
+      emptyText: '无法翻译空文本',
+      sameLanguage: '源语言和目标语言相同',
+      noProviderConfigured: '未配置翻译功能的 AI 供应商',
+      requestFailed: '翻译请求失败: {{message}}',
+      requestTimeout: '翻译请求超时',
+      networkError: '翻译过程中发生网络错误',
+      detectionFailed: '语言检测失败',
+    },
+    // 设置
+    settings: {
+      title: '翻译',
+      titleDesc: '配置 AI 翻译功能',
+      modelBinding: '模型绑定',
+      selectModel: '选择模型',
+      selectModelDesc: '选择用于翻译功能的供应商和模型',
+      enableLLMDetection: '启用 LLM 语言检测',
+      enableLLMDetectionDesc: '当 franc 本地检测置信度较低时，使用 LLM 进行更准确的语言检测',
+      defaultTargetLanguage: '默认目标语言',
+      defaultTargetLanguageDesc: '翻译时默认使用的目标语言',
+      showOriginalByDefault: '默认显示原文',
+      showOriginalByDefaultDesc: '打开翻译窗口时默认显示原文内容',
     },
   },
 };

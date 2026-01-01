@@ -8,6 +8,7 @@ import type { RendererContext } from '../types';
 import { BASE_PROMPT_TEMPLATE, ADVANCED_PROMPT_TEMPLATE } from '../settings';
 import { BaseSettingsRenderer } from './baseRenderer';
 import { WritingSettingsRenderer } from './writingSettingsRenderer';
+import { TranslationSettingsRenderer } from './translationSettingsRenderer';
 import { t } from '../../i18n';
 
 /**
@@ -17,10 +18,13 @@ import { t } from '../../i18n';
 export class NamingSettingsRenderer extends BaseSettingsRenderer {
   // 写作设置渲染器实例
   private writingRenderer: WritingSettingsRenderer;
+  // 翻译设置渲染器实例
+  private translationRenderer: TranslationSettingsRenderer;
 
   constructor() {
     super();
     this.writingRenderer = new WritingSettingsRenderer();
+    this.translationRenderer = new TranslationSettingsRenderer();
   }
 
   /**
@@ -180,7 +184,7 @@ export class NamingSettingsRenderer extends BaseSettingsRenderer {
   render(context: RendererContext): void {
     this.context = context;
 
-    // 渲染顺序：选中工具栏 → 写作 → AI 文件名生成
+    // 渲染顺序：选中工具栏 → 写作 → 翻译 → AI 文件名生成
     
     // 1. 选中工具栏功能设置
     this.renderSelectionToolbarFunctionSettings(context.containerEl);
@@ -188,7 +192,10 @@ export class NamingSettingsRenderer extends BaseSettingsRenderer {
     // 2. 写作功能设置
     this.writingRenderer.render(context);
 
-    // 3. AI 命名功能设置
+    // 3. 翻译功能设置
+    this.translationRenderer.render(context);
+
+    // 4. AI 命名功能设置
     this.renderNamingFeature(context.containerEl);
   }
 

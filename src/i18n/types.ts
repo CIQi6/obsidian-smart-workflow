@@ -163,8 +163,11 @@ export interface TranslationKeys {
       apiKeyDesc: string;
       temperature: string;
       temperatureDesc: string;
-      maxTokens: string;
-      maxTokensDesc: string;
+      contextLength: string;
+      contextLengthDesc: string;
+      maxOutputTokens: string;
+      maxOutputTokensDesc: string;
+      outputTokensWarning: string;
       topP: string;
       topPDesc: string;
       timeout: string;
@@ -574,6 +577,7 @@ export interface TranslationKeys {
       inlineCode: string;
       inlineMath: string;
       clearFormat: string;
+      translate: string;
       copySuccess: string;
       copyFailed: string;
       searchSuccess: string;
@@ -700,6 +704,56 @@ export interface TranslationKeys {
     // 应用视图
     applyView: {
       title: string;
+    };
+  };
+
+  // 翻译功能
+  translation: {
+    // 模态窗口
+    modal: {
+      sourceLanguage: string;
+      targetLanguage: string;
+      originalText: string;
+      translatedText: string;
+      thinkingProcess: string;
+      showOriginal: string;
+      hideOriginal: string;
+      showThinking: string;
+      hideThinking: string;
+      translating: string;
+      completed: string;
+      detectedAs: string;
+      copy: string;
+      replace: string;
+      retry: string;
+    };
+    // 工具栏
+    toolbar: {
+      translate: string;
+    };
+    // 错误消息
+    errors: {
+      emptyText: string;
+      sameLanguage: string;
+      noProviderConfigured: string;
+      requestFailed: string;
+      requestTimeout: string;
+      networkError: string;
+      detectionFailed: string;
+    };
+    // 设置
+    settings: {
+      title: string;
+      titleDesc: string;
+      modelBinding: string;
+      selectModel: string;
+      selectModelDesc: string;
+      enableLLMDetection: string;
+      enableLLMDetectionDesc: string;
+      defaultTargetLanguage: string;
+      defaultTargetLanguageDesc: string;
+      showOriginalByDefault: string;
+      showOriginalByDefaultDesc: string;
     };
   };
 }

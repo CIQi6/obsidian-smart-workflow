@@ -21,6 +21,8 @@ import { ActionExecutor } from './actionExecutor';
 import { debugLog } from '../../utils/logger';
 import { SmartWorkflowSettings } from '../../settings/settings';
 import { WritingActionExecutor, WritingActionContext } from '../writing/writingActionExecutor';
+import { TranslationService } from '../../services/translation';
+import { TranslationModal } from '../translation/translationModal';
 
 /**
  * 选中文字浮动工具栏管理器
@@ -41,6 +43,9 @@ export class SelectionToolbarManager {
   // 写作功能执行器
   private writingActionExecutor: WritingActionExecutor | null = null;
   private onSettingsChange?: () => Promise<void>;
+  
+  // 翻译服务
+  private translationService: TranslationService | null = null;
   
   // 事件处理器引用
   private boundHandleKeyDown: (e: KeyboardEvent) => void;
@@ -71,6 +76,13 @@ export class SelectionToolbarManager {
     // 初始化写作功能执行器（如果有插件设置）
     if (this.pluginSettings) {
       this.writingActionExecutor = new WritingActionExecutor(
+        app,
+        this.pluginSettings,
+        onSettingsChange
+      );
+      
+      // 初始化翻译服务
+      this.translationService = new TranslationService(
         app,
         this.pluginSettings,
         onSettingsChange
@@ -172,6 +184,15 @@ export class SelectionToolbarManager {
         this.writingActionExecutor.updateSettings(pluginSettings);
       } else {
         this.writingActionExecutor = new WritingActionExecutor(
+          this.app,
+          pluginSettings,
+          this.onSettingsChange
+        );
+      }
+      
+      // 更新翻译服务
+      if (!this.translationService) {
+        this.translationService = new TranslationService(
           this.app,
           pluginSettings,
           this.onSettingsChange
@@ -361,6 +382,19 @@ export class SelectionToolbarManager {
         execute: async (context) => {
           return this.actionExecutor.clearFormatting(context);
         }
+      },
+      translate: {
+        id: 'translate',
+        icon: 'languages',
+        tooltipKey: 'selectionToolbar.actions.translate',
+        hideAfterExecute: false,
+        execute: async (context) => {
+          await this.executeTranslate(context);
+        },
+        isDisabled: (context) => {
+          // 空白文本禁用翻译按钮
+          return !context.text || context.text.trim().length === 0;
+        }
       }
     };
   }
@@ -496,6 +530,52 @@ export class SelectionToolbarManager {
     
     // 执行润色
     await this.writingActionExecutor.executePolish(writingContext);
+  }
+
+  /**
+   * 执行翻译动作
+   * 打开翻译模态窗口
+   * @param context 选择上下文
+   */
+  private async executeTranslate(context: SelectionContext): Promise<void> {
+    if (!this.translationService || !this.pluginSettings) {
+      debugLog('[SelectionToolbarManager] TranslationService 或 pluginSettings 未初始化');
+      return;
+    }
+    
+    // 获取当前活动的 MarkdownView
+    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!activeView) {
+      debugLog('[SelectionToolbarManager] 无法获取 MarkdownView');
+      return;
+    }
+    
+    // 获取编辑器
+    const editor = activeView.editor;
+    if (!editor) {
+      debugLog('[SelectionToolbarManager] 无法获取 Editor');
+      return;
+    }
+    
+    debugLog('[SelectionToolbarManager] 打开翻译模态窗口，文本长度:', context.text.length);
+    
+    // 打开翻译模态窗口
+    const modal = new TranslationModal(this.app, {
+      originalText: context.text,
+      selectionContext: context,
+      translationService: this.translationService,
+      settings: this.pluginSettings,
+      onReplace: (translatedText: string) => {
+        // 替换选中文本
+        const from = editor.getCursor('from');
+        const to = editor.getCursor('to');
+        editor.replaceRange(translatedText, from, to);
+        debugLog('[SelectionToolbarManager] 翻译文本已替换');
+      },
+      onSettingsSave: this.onSettingsChange,
+    });
+    
+    modal.open();
   }
 
   /**

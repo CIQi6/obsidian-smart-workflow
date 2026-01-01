@@ -14,6 +14,7 @@ import {
   ReasoningEffort,
 } from './types';
 import { InvalidReasoningEffortError, AIError, AIErrorCode } from './errors';
+import { inferOutputTokenLimit } from './modelContextLengths';
 
 /**
  * 请求构建器类
@@ -56,6 +57,9 @@ export class RequestBuilder {
   static buildChatCompletions(options: RequestBuilderOptions): ChatCompletionsRequest {
     const { model, prompt, systemPrompt, stream } = options;
 
+    // 验证输出 token 限制
+    RequestBuilder.validateOutputTokenLimit(model);
+
     // 构建消息数组
     const messages: Array<{ role: string; content: string }> = [];
 
@@ -74,9 +78,9 @@ export class RequestBuilder {
       top_p: model.topP,
     };
 
-    // 仅当 maxTokens 为正整数时才添加该参数
-    if (model.maxTokens && model.maxTokens > 0) {
-      request.max_tokens = model.maxTokens;
+    // 仅当 maxOutputTokens 为正整数时才添加 max_tokens 参数
+    if (model.maxOutputTokens && model.maxOutputTokens > 0) {
+      request.max_tokens = model.maxOutputTokens;
     }
 
     // 设置流式模式
@@ -99,6 +103,9 @@ export class RequestBuilder {
    */
   static buildResponses(options: RequestBuilderOptions): ResponsesAPIRequest {
     const { model, prompt, systemPrompt, stream } = options;
+
+    // 验证输出 token 限制
+    RequestBuilder.validateOutputTokenLimit(model);
 
     // 获取推理深度，默认为 'medium'
     const reasoningEffort: ReasoningEffort = model.reasoningEffort || 'medium';
@@ -132,9 +139,9 @@ export class RequestBuilder {
       },
     };
 
-    // 如果配置了 maxTokens，添加 max_output_tokens 参数
-    if (model.maxTokens && model.maxTokens > 0) {
-      request.max_output_tokens = model.maxTokens;
+    // 仅当 maxOutputTokens 为正整数时才添加 max_output_tokens 参数
+    if (model.maxOutputTokens && model.maxOutputTokens > 0) {
+      request.max_output_tokens = model.maxOutputTokens;
     }
 
     // 设置流式模式
@@ -222,11 +229,30 @@ export class RequestBuilder {
       }
     }
 
-    if (model.maxTokens !== undefined && model.maxTokens < 0) {
+    if (model.maxOutputTokens !== undefined && model.maxOutputTokens < 0) {
       throw new AIError(
         AIErrorCode.INVALID_RESPONSE,
-        'Max tokens must be a non-negative number',
+        'Max output tokens must be a non-negative number',
         false
+      );
+    }
+  }
+
+  /**
+   * 验证输出 token 限制
+   * 检查配置的 maxOutputTokens 是否超过模型的已知限制
+   * 
+   * @param model 模型配置
+   */
+  static validateOutputTokenLimit(model: ModelConfig): void {
+    if (!model.maxOutputTokens || model.maxOutputTokens <= 0) {
+      return; // 未配置或为自动模式，无需验证
+    }
+
+    const modelLimit = inferOutputTokenLimit(model.name);
+    if (model.maxOutputTokens > modelLimit) {
+      console.warn(
+        `[RequestBuilder] maxOutputTokens (${model.maxOutputTokens}) exceeds the known limit (${modelLimit}) for model "${model.name}". This may cause API errors.`
       );
     }
   }

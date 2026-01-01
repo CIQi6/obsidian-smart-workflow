@@ -144,8 +144,11 @@ export const en: TranslationKeys = {
       apiKeyDesc: 'Your API key',
       temperature: 'Temperature',
       temperatureDesc: 'Controls output randomness. Lower values produce more deterministic, consistent results; higher values produce more diverse, creative results',
-      maxTokens: 'Max Tokens',
-      maxTokensDesc: 'Maximum tokens for the model.',
+      contextLength: 'Context Length',
+      contextLengthDesc: 'Maximum context window size for this model (read-only, inferred from model ID)',
+      maxOutputTokens: 'Max Output Tokens',
+      maxOutputTokensDesc: 'Maximum tokens the model can generate per response. Set to 0 (Auto) to use API default.',
+      outputTokensWarning: 'Warning: Value exceeds recommended limit ({{limit}}). This may cause API errors.',
       topP: 'Top P',
       topPDesc: 'Controls vocabulary diversity. Lower values produce more common, concise words; higher values produce broader vocabulary. Recommended: keep default 1.0',
       timeout: 'Request Timeout (seconds)',
@@ -536,6 +539,7 @@ export const en: TranslationKeys = {
       inlineCode: 'Code',
       inlineMath: 'Math',
       clearFormat: 'Clear',
+      translate: 'Translate',
       copySuccess: 'Copied to clipboard',
       copyFailed: 'Failed to copy to clipboard',
       searchSuccess: 'Searching in vault',
@@ -661,6 +665,56 @@ export const en: TranslationKeys = {
     // Apply view
     applyView: {
       title: 'Writing Polish',
+    },
+  },
+
+  // Translation feature
+  translation: {
+    // Modal
+    modal: {
+      sourceLanguage: 'Source Language',
+      targetLanguage: 'Target Language',
+      originalText: 'Original',
+      translatedText: 'Translation',
+      thinkingProcess: 'AI Thinking Process',
+      showOriginal: 'Show Original',
+      hideOriginal: 'Hide Original',
+      showThinking: 'Show Thinking',
+      hideThinking: 'Hide Thinking',
+      translating: 'Translating...',
+      completed: 'Completed',
+      detectedAs: 'Detected as',
+      copy: 'Copy',
+      replace: 'Replace',
+      retry: 'Retry',
+    },
+    // Toolbar
+    toolbar: {
+      translate: 'Translate',
+    },
+    // Error messages
+    errors: {
+      emptyText: 'Cannot translate empty text',
+      sameLanguage: 'Source and target languages are the same',
+      noProviderConfigured: 'No AI provider configured for translation',
+      requestFailed: 'Translation request failed: {{message}}',
+      requestTimeout: 'Translation request timed out',
+      networkError: 'Network error during translation',
+      detectionFailed: 'Language detection failed',
+    },
+    // Settings
+    settings: {
+      title: 'Translation',
+      titleDesc: 'Configure AI translation features',
+      modelBinding: 'Model Binding',
+      selectModel: 'Select Model',
+      selectModelDesc: 'Select provider and model for translation features',
+      enableLLMDetection: 'Enable LLM Language Detection',
+      enableLLMDetectionDesc: 'Use LLM for more accurate language detection when franc local detection confidence is low',
+      defaultTargetLanguage: 'Default Target Language',
+      defaultTargetLanguageDesc: 'Default target language for translation',
+      showOriginalByDefault: 'Show Original by Default',
+      showOriginalByDefaultDesc: 'Show original text by default when opening translation modal',
     },
   },
 };

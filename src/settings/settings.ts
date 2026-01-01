@@ -54,11 +54,10 @@ export interface ModelConfig {
   name: string;            // 模型名称（API 调用用，如 'gpt-4o'）
   displayName: string;     // 显示名称（UI 展示用）
   temperature: number;     // 温度参数 (0-2)
-  maxTokens: number;       // 最大 token 数
   topP: number;            // Top P 参数 (0-1)
   type?: ModelType;        // 模型基本类型
   abilities?: ModelAbility[]; // 模型能力列表（主要用于 chat 类型）
-  contextLength?: number;  // 上下文长度（可选）
+  maxOutputTokens?: number; // 最大输出 token 数，0 或 undefined 表示使用 API 默认值
   apiFormat?: APIFormat;   // API 格式，默认 'chat-completions'
   reasoningEffort?: ReasoningEffort; // 推理深度，默认 'medium'（仅用于 Responses API）
   showReasoningSummary?: boolean; // 是否显示推理摘要（仅用于 Responses API）
@@ -246,6 +245,7 @@ export const DEFAULT_TOOLBAR_BUTTON_CONFIGS: ToolbarButtonConfig[] = [
   { id: 'inlineMath', enabled: true, showLabel: true, order: 8 },
   { id: 'clearFormat', enabled: true, showLabel: true, order: 9 },
   { id: 'writing', enabled: true, showLabel: true, order: 10 },
+  { id: 'translate', enabled: true, showLabel: true, order: 11 },
 ];
 
 /**
@@ -383,6 +383,40 @@ export const DEFAULT_WRITING_SETTINGS: WritingSettings = {
   polishPromptTemplate: DEFAULT_POLISH_PROMPT_TEMPLATE,
 };
 
+// ============================================================================
+// 翻译功能设置
+// ============================================================================
+
+/**
+ * 翻译功能设置接口
+ * 配置翻译功能的行为和默认值
+ */
+export interface TranslationSettings {
+  /** 是否启用 LLM 语言检测 */
+  enableLLMDetection: boolean;
+  /** LLM 检测置信度阈值 (0-1)，低于此值时使用 LLM 验证 */
+  llmConfidenceThreshold: number;
+  /** 默认目标语言 */
+  defaultTargetLanguage: string;
+  /** 默认显示原文 */
+  showOriginalByDefault: boolean;
+  /** 记住上次使用的目标语言 */
+  rememberLastTargetLanguage: boolean;
+  /** 上次使用的目标语言 */
+  lastTargetLanguage?: string;
+}
+
+/**
+ * 默认翻译功能设置
+ */
+export const DEFAULT_TRANSLATION_SETTINGS: TranslationSettings = {
+  enableLLMDetection: false,
+  llmConfidenceThreshold: 0.8,
+  defaultTargetLanguage: 'zh-CN',
+  showOriginalByDefault: true,
+  rememberLastTargetLanguage: true,
+};
+
 /**
  * 功能显示设置接口
  */
@@ -425,6 +459,7 @@ export interface SmartWorkflowSettings {
   selectionToolbar: SelectionToolbarSettings; // 选中工具栏设置
   featureVisibility: FeatureVisibilitySettings; // 功能显示设置
   writing: WritingSettings;      // 写作功能设置
+  translation: TranslationSettings; // 翻译功能设置
 }
 
 /**
@@ -630,5 +665,6 @@ export const DEFAULT_SETTINGS: SmartWorkflowSettings = {
   terminal: DEFAULT_TERMINAL_SETTINGS, // 终端默认设置
   selectionToolbar: DEFAULT_SELECTION_TOOLBAR_SETTINGS, // 选中工具栏默认设置
   featureVisibility: DEFAULT_FEATURE_VISIBILITY, // 功能显示默认设置
-  writing: DEFAULT_WRITING_SETTINGS // 写作功能默认设置
+  writing: DEFAULT_WRITING_SETTINGS, // 写作功能默认设置
+  translation: DEFAULT_TRANSLATION_SETTINGS, // 翻译功能默认设置
 };

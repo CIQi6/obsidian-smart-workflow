@@ -68,11 +68,11 @@ export class ConnectionTester {
     }
 
     try {
-      // 创建临时模型配置，强制使用 chat-completions 格式和极小的 maxTokens
+      // 创建临时模型配置，强制使用 chat-completions 格式和极小的 maxOutputTokens
       const testModel: ModelConfig = {
         ...model,
         apiFormat: 'chat-completions',
-        maxTokens: 5,
+        maxOutputTokens: 5,
       };
 
       // 使用 AIClient 发送极简请求

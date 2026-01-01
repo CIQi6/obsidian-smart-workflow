@@ -20,6 +20,15 @@ interface ContextLengthConfig {
 }
 
 /**
+ * 输出 Token 限制配置接口
+ * 定义模型单次生成的最大 token 数限制
+ */
+interface OutputTokenLimitConfig {
+  pattern: RegExp;
+  maxOutputTokens: number;
+}
+
+/**
  * 已知模型的上下文长度配置
  * 按优先级排序，更具体的模式应放在前面
  */
@@ -400,6 +409,251 @@ const CONTEXT_LENGTH_CONFIGS: ContextLengthConfig[] = [
 const DEFAULT_CONTEXT_LENGTH = 0;
 
 /**
+ * 默认输出 token 限制
+ * 保守值，适用于未知模型
+ */
+const DEFAULT_OUTPUT_TOKEN_LIMIT = 4096;
+
+/**
+ * 已知模型的输出 token 限制配置
+ * 这是模型单次生成的硬限制，与上下文长度不同
+ * 按优先级排序，更具体的模式应放在前面
+ * 
+ * 数据来源：2025 年 12 月最新官方文档
+ */
+const OUTPUT_TOKEN_LIMITS: OutputTokenLimitConfig[] = [
+  // ============================================================================
+  // OpenAI 模型 (2025)
+  // ============================================================================
+  // GPT-5 系列 - 128K output tokens
+  { pattern: /gpt[_-]?5\.?2/i, maxOutputTokens: 128000 },
+  { pattern: /gpt[_-]?5\.?1/i, maxOutputTokens: 128000 },
+  { pattern: /gpt[_-]?5[_-]?pro/i, maxOutputTokens: 128000 },
+  { pattern: /gpt[_-]?5[_-]?mini/i, maxOutputTokens: 128000 },
+  { pattern: /gpt[_-]?5[_-]?nano/i, maxOutputTokens: 128000 },
+  { pattern: /gpt[_-]?5[_-]?chat/i, maxOutputTokens: 16384 },
+  { pattern: /gpt[_-]?5/i, maxOutputTokens: 128000 },
+  // GPT-4.1 系列 - 32K output tokens
+  { pattern: /gpt[_-]?4\.?1/i, maxOutputTokens: 32768 },
+  // GPT-4o 系列 - 16K output tokens
+  { pattern: /gpt[_-]?4o/i, maxOutputTokens: 16384 },
+  { pattern: /gpt[_-]?4[_-]?turbo/i, maxOutputTokens: 4096 },
+  { pattern: /gpt[_-]?4[_-]?32k/i, maxOutputTokens: 8192 },
+  { pattern: /gpt[_-]?4/i, maxOutputTokens: 8192 },
+  { pattern: /gpt[_-]?3\.?5[_-]?turbo/i, maxOutputTokens: 4096 },
+  // o 系列推理模型 - 100K output tokens
+  { pattern: /o1[_-]?preview/i, maxOutputTokens: 32768 },
+  { pattern: /o1[_-]?mini/i, maxOutputTokens: 65536 },
+  { pattern: /o1[_-]?pro/i, maxOutputTokens: 100000 },
+  { pattern: /o1/i, maxOutputTokens: 100000 },
+  { pattern: /o3[_-]?mini/i, maxOutputTokens: 100000 },
+  { pattern: /o3/i, maxOutputTokens: 100000 },
+  { pattern: /o4[_-]?mini/i, maxOutputTokens: 100000 },
+  { pattern: /o4/i, maxOutputTokens: 100000 },
+
+  // ============================================================================
+  // Anthropic Claude 模型 (2025)
+  // ============================================================================
+  // Claude 4.x 系列 - 8K-16K output tokens
+  { pattern: /claude[_-]?opus[_-]?4\.?5/i, maxOutputTokens: 16384 },
+  { pattern: /claude[_-]?sonnet[_-]?4\.?5/i, maxOutputTokens: 16384 },
+  { pattern: /claude[_-]?haiku[_-]?4\.?5/i, maxOutputTokens: 8192 },
+  { pattern: /claude[_-]?4\.?5/i, maxOutputTokens: 16384 },
+  { pattern: /claude[_-]?sonnet[_-]?4/i, maxOutputTokens: 16384 },
+  { pattern: /claude[_-]?opus[_-]?4/i, maxOutputTokens: 16384 },
+  { pattern: /claude[_-]?haiku[_-]?4/i, maxOutputTokens: 8192 },
+  { pattern: /claude[_-]?4/i, maxOutputTokens: 16384 },
+  { pattern: /claude[_-]?3\.?7/i, maxOutputTokens: 16384 },
+  { pattern: /claude[_-]?3\.?5[_-]?sonnet/i, maxOutputTokens: 8192 },
+  { pattern: /claude[_-]?3\.?5[_-]?haiku/i, maxOutputTokens: 8192 },
+  { pattern: /claude[_-]?3\.?5/i, maxOutputTokens: 8192 },
+  { pattern: /claude[_-]?3[_-]?opus/i, maxOutputTokens: 4096 },
+  { pattern: /claude[_-]?3[_-]?sonnet/i, maxOutputTokens: 4096 },
+  { pattern: /claude[_-]?3[_-]?haiku/i, maxOutputTokens: 4096 },
+  { pattern: /claude[_-]?3/i, maxOutputTokens: 4096 },
+  { pattern: /claude[_-]?2/i, maxOutputTokens: 4096 },
+  { pattern: /claude/i, maxOutputTokens: 8192 },
+
+  // ============================================================================
+  // Google Gemini 模型 (2025)
+  // ============================================================================
+  // Gemini 3 系列 - 65K output tokens
+  { pattern: /gemini[_-]?3[_-]?pro/i, maxOutputTokens: 65536 },
+  { pattern: /gemini[_-]?3[_-]?deep[_-]?think/i, maxOutputTokens: 65536 },
+  { pattern: /gemini[_-]?3/i, maxOutputTokens: 65536 },
+  // Gemini 2.x 系列 - 8K output tokens
+  { pattern: /gemini[_-]?2\.?5[_-]?pro/i, maxOutputTokens: 65536 },
+  { pattern: /gemini[_-]?2\.?5[_-]?flash/i, maxOutputTokens: 65536 },
+  { pattern: /gemini[_-]?2\.?5/i, maxOutputTokens: 65536 },
+  { pattern: /gemini[_-]?2\.?0[_-]?pro/i, maxOutputTokens: 8192 },
+  { pattern: /gemini[_-]?2\.?0[_-]?flash/i, maxOutputTokens: 8192 },
+  { pattern: /gemini[_-]?2/i, maxOutputTokens: 8192 },
+  // Gemini 1.5 系列 - 8K output tokens
+  { pattern: /gemini[_-]?1\.?5[_-]?pro/i, maxOutputTokens: 8192 },
+  { pattern: /gemini[_-]?1\.?5[_-]?flash/i, maxOutputTokens: 8192 },
+  { pattern: /gemini[_-]?1\.?5/i, maxOutputTokens: 8192 },
+  { pattern: /gemini[_-]?pro/i, maxOutputTokens: 8192 },
+  { pattern: /gemini/i, maxOutputTokens: 8192 },
+
+  // ============================================================================
+  // DeepSeek 模型 (2025)
+  // ============================================================================
+  // DeepSeek V3 系列 - 8K output tokens
+  { pattern: /deepseek[_-]?v3/i, maxOutputTokens: 8192 },
+  { pattern: /deepseek[_-]?v2/i, maxOutputTokens: 8192 },
+  { pattern: /deepseek[_-]?coder/i, maxOutputTokens: 8192 },
+  { pattern: /deepseek[_-]?chat/i, maxOutputTokens: 8192 },
+  { pattern: /deepseek[_-]?reasoner/i, maxOutputTokens: 16384 },
+  { pattern: /deepseek[_-]?r1/i, maxOutputTokens: 16384 },
+  { pattern: /deepseek/i, maxOutputTokens: 8192 },
+
+  // ============================================================================
+  // Qwen 模型 (2025)
+  // ============================================================================
+  // Qwen3 系列 - 8K-32K output tokens
+  { pattern: /qwen3[_-]?next/i, maxOutputTokens: 16384 },
+  { pattern: /qwen3[_-]?coder[_-]?plus/i, maxOutputTokens: 32768 },
+  { pattern: /qwen3[_-]?coder[_-]?480b/i, maxOutputTokens: 32768 },
+  { pattern: /qwen3[_-]?coder/i, maxOutputTokens: 16384 },
+  { pattern: /qwen3[_-]?omni/i, maxOutputTokens: 8192 },
+  { pattern: /qwen3[_-]?vl/i, maxOutputTokens: 8192 },
+  { pattern: /qwen3[_-]?235b/i, maxOutputTokens: 16384 },
+  { pattern: /qwen3[_-]?32b/i, maxOutputTokens: 16384 },
+  { pattern: /qwen3[_-]?30b/i, maxOutputTokens: 16384 },
+  { pattern: /qwen3[_-]?14b/i, maxOutputTokens: 16384 },
+  { pattern: /qwen3[_-]?8b/i, maxOutputTokens: 16384 },
+  { pattern: /qwen3[_-]?max/i, maxOutputTokens: 16384 },
+  { pattern: /qwen3/i, maxOutputTokens: 16384 },
+  // QwQ 推理模型 - 16K output tokens
+  { pattern: /qwq/i, maxOutputTokens: 16384 },
+  // QVQ 视觉推理模型 - 16K output tokens
+  { pattern: /qvq/i, maxOutputTokens: 16384 },
+  // Qwen2.5 系列 - 注意 segment length 限制 (32K)
+  { pattern: /qwen2\.?5[_-]?turbo/i, maxOutputTokens: 8192 },
+  { pattern: /qwen2\.?5[_-]?1m/i, maxOutputTokens: 8192 },
+  { pattern: /qwen2\.?5[_-]?vl/i, maxOutputTokens: 8192 },
+  { pattern: /qwen2\.?5[_-]?72b/i, maxOutputTokens: 32768 },
+  { pattern: /qwen2\.?5[_-]?32b/i, maxOutputTokens: 16384 },
+  { pattern: /qwen2\.?5[_-]?14b/i, maxOutputTokens: 8192 },
+  { pattern: /qwen2\.?5[_-]?7b/i, maxOutputTokens: 8192 },
+  { pattern: /qwen2\.?5[_-]?coder/i, maxOutputTokens: 8192 },
+  { pattern: /qwen2\.?5/i, maxOutputTokens: 8192 },
+  { pattern: /qwen2[_-]?vl/i, maxOutputTokens: 8192 },
+  { pattern: /qwen2/i, maxOutputTokens: 8192 },
+  // Qwen 商业版
+  { pattern: /qwen[_-]?long/i, maxOutputTokens: 8192 },
+  { pattern: /qwenlong/i, maxOutputTokens: 8192 },
+  { pattern: /qwen[_-]?plus/i, maxOutputTokens: 8192 },
+  { pattern: /qwen[_-]?turbo/i, maxOutputTokens: 8192 },
+  { pattern: /qwen[_-]?max/i, maxOutputTokens: 8192 },
+  { pattern: /qwen/i, maxOutputTokens: 8192 },
+
+  // ============================================================================
+  // 智谱 GLM 模型 (2025)
+  // ============================================================================
+  // GLM-4.x 系列 - 4K-8K output tokens
+  { pattern: /glm[_-]?4\.?7/i, maxOutputTokens: 8192 },
+  { pattern: /glm[_-]?4\.?6/i, maxOutputTokens: 8192 },
+  { pattern: /glm[_-]?4\.?5/i, maxOutputTokens: 8192 },
+  { pattern: /glm[_-]?4\.?1/i, maxOutputTokens: 8192 },
+  { pattern: /glm[_-]?4[_-]?plus/i, maxOutputTokens: 8192 },
+  { pattern: /glm[_-]?4[_-]?long/i, maxOutputTokens: 8192 },
+  { pattern: /glm[_-]?4/i, maxOutputTokens: 4096 },
+  // GLM-Z1 推理系列
+  { pattern: /glm[_-]?z1/i, maxOutputTokens: 8192 },
+  { pattern: /glm[_-]?zero/i, maxOutputTokens: 8192 },
+  { pattern: /glm[_-]?3[_-]?turbo/i, maxOutputTokens: 4096 },
+  { pattern: /chatglm/i, maxOutputTokens: 4096 },
+
+  // ============================================================================
+  // Moonshot/Kimi 模型 (2025)
+  // ============================================================================
+  // Kimi K2 系列 - 8K output tokens
+  { pattern: /kimi[_-]?k2/i, maxOutputTokens: 8192 },
+  { pattern: /kimi[_-]?dev/i, maxOutputTokens: 8192 },
+  { pattern: /kimi[_-]?vl/i, maxOutputTokens: 8192 },
+  { pattern: /kimi/i, maxOutputTokens: 8192 },
+  { pattern: /moonshot/i, maxOutputTokens: 8192 },
+
+  // ============================================================================
+  // Mistral 模型 (2025)
+  // ============================================================================
+  // Mistral Large 3 - 128K output tokens
+  { pattern: /mistral[_-]?large[_-]?3/i, maxOutputTokens: 128000 },
+  { pattern: /mistral[_-]?large/i, maxOutputTokens: 8192 },
+  { pattern: /mistral[_-]?medium/i, maxOutputTokens: 8192 },
+  { pattern: /mistral[_-]?small/i, maxOutputTokens: 8192 },
+  { pattern: /mixtral/i, maxOutputTokens: 4096 },
+  { pattern: /mistral/i, maxOutputTokens: 8192 },
+  { pattern: /pixtral/i, maxOutputTokens: 8192 },
+
+  // ============================================================================
+  // Meta Llama 模型 (2025)
+  // ============================================================================
+  // Llama 4 系列 - 16K output tokens
+  { pattern: /llama[_-]?4[_-]?scout/i, maxOutputTokens: 16384 },
+  { pattern: /llama[_-]?4[_-]?maverick/i, maxOutputTokens: 16384 },
+  { pattern: /llama[_-]?4[_-]?behemoth/i, maxOutputTokens: 16384 },
+  { pattern: /llama[_-]?4/i, maxOutputTokens: 16384 },
+  // Llama 3 系列 - 8K output tokens
+  { pattern: /llama[_-]?3\.?3/i, maxOutputTokens: 8192 },
+  { pattern: /llama[_-]?3\.?2/i, maxOutputTokens: 8192 },
+  { pattern: /llama[_-]?3\.?1/i, maxOutputTokens: 8192 },
+  { pattern: /llama[_-]?3/i, maxOutputTokens: 4096 },
+  { pattern: /llama[_-]?2/i, maxOutputTokens: 4096 },
+  { pattern: /llama/i, maxOutputTokens: 8192 },
+
+  // ============================================================================
+  // xAI Grok 模型 (2025)
+  // ============================================================================
+  // Grok 4 - 16K output tokens
+  { pattern: /grok[_-]?4[_-]?fast/i, maxOutputTokens: 16384 },
+  { pattern: /grok[_-]?4/i, maxOutputTokens: 16384 },
+  { pattern: /grok[_-]?3/i, maxOutputTokens: 8192 },
+  { pattern: /grok[_-]?2/i, maxOutputTokens: 8192 },
+  { pattern: /grok/i, maxOutputTokens: 8192 },
+
+  // ============================================================================
+  // 字节豆包 Doubao 模型 (2025)
+  // ============================================================================
+  // Doubao 系列 - 4K-8K output tokens
+  { pattern: /doubao[_-]?1\.?8/i, maxOutputTokens: 8192 },
+  { pattern: /doubao[_-]?1\.?5/i, maxOutputTokens: 8192 },
+  { pattern: /doubao[_-]?seed[_-]?code/i, maxOutputTokens: 8192 },
+  { pattern: /seed[_-]?oss/i, maxOutputTokens: 8192 },
+  { pattern: /seed[_-]?rice/i, maxOutputTokens: 8192 },
+  { pattern: /doubao[_-]?pro/i, maxOutputTokens: 4096 },
+  { pattern: /doubao[_-]?lite/i, maxOutputTokens: 4096 },
+  { pattern: /doubao/i, maxOutputTokens: 4096 },
+
+  // ============================================================================
+  // MiniMax 模型 (2025)
+  // ============================================================================
+  // MiniMax M2 系列 - 8K output tokens
+  { pattern: /minimax[_-]?m2/i, maxOutputTokens: 8192 },
+  { pattern: /minimax[_-]?m1/i, maxOutputTokens: 8192 },
+  { pattern: /abab/i, maxOutputTokens: 8192 },
+  { pattern: /minimax/i, maxOutputTokens: 8192 },
+
+  // ============================================================================
+  // 其他模型
+  // ============================================================================
+  { pattern: /baichuan/i, maxOutputTokens: 4096 },
+  { pattern: /pangu/i, maxOutputTokens: 4096 },
+  { pattern: /yi[_-]/i, maxOutputTokens: 4096 },
+  { pattern: /command[_-]?r/i, maxOutputTokens: 4096 },
+  { pattern: /command/i, maxOutputTokens: 4096 },
+  { pattern: /ernie/i, maxOutputTokens: 4096 },
+  { pattern: /hunyuan/i, maxOutputTokens: 4096 },
+  { pattern: /step[_-]?3/i, maxOutputTokens: 4096 },
+  { pattern: /internlm/i, maxOutputTokens: 4096 },
+  { pattern: /kat/i, maxOutputTokens: 4096 },
+  { pattern: /ling[_-]?flash/i, maxOutputTokens: 4096 },
+  { pattern: /ling[_-]?mini/i, maxOutputTokens: 4096 },
+  { pattern: /ring[_-]?flash/i, maxOutputTokens: 4096 },
+];
+
+/**
  * 根据模型 ID 推断上下文长度
  * @param modelId 模型 ID
  * @returns 推断的上下文长度（token 数）
@@ -418,5 +672,74 @@ export function inferContextLength(modelId: string): number {
   return DEFAULT_CONTEXT_LENGTH;
 }
 
+/**
+ * 根据模型 ID 推断输出 token 上限
+ * @param modelId 模型 ID
+ * @returns 推断的输出 token 上限
+ */
+export function inferOutputTokenLimit(modelId: string): number {
+  if (!modelId) {
+    return DEFAULT_OUTPUT_TOKEN_LIMIT;
+  }
+
+  for (const config of OUTPUT_TOKEN_LIMITS) {
+    if (config.pattern.test(modelId)) {
+      return config.maxOutputTokens;
+    }
+  }
+
+  return DEFAULT_OUTPUT_TOKEN_LIMIT;
+}
+
+/**
+ * 获取模型的推荐输出 token 值
+ * 用于 UI 默认值，通常是上限的一半或更保守的值
+ * @param modelId 模型 ID
+ * @returns 推荐的输出 token 值
+ */
+export function getRecommendedOutputTokens(modelId: string): number {
+  const limit = inferOutputTokenLimit(modelId);
+  // 推荐值为上限的一半，但不超过 4096
+  return Math.min(Math.floor(limit / 2), 4096);
+}
+
+/**
+ * 估算文本内容的 token 数量
+ * 使用简单的字符/token 比例估算，适用于大多数场景
+ * 
+ * 估算规则：
+ * - 英文：约 4 个字符 = 1 个 token
+ * - 中文：约 1.5 个字符 = 1 个 token（中文字符密度更高）
+ * - 混合内容：根据中英文比例加权计算
+ * 
+ * @param content 要估算的文本内容
+ * @returns 估算的 token 数量（正整数）
+ */
+export function estimateTokenCount(content: string): number {
+  if (!content || content.length === 0) {
+    return 0;
+  }
+
+  // 统计中文字符数量（包括中文标点）
+  const chineseCharCount = (content.match(/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/g) || []).length;
+  
+  // 非中文字符数量
+  const nonChineseCharCount = content.length - chineseCharCount;
+  
+  // 中文：约 1.5 字符 = 1 token
+  // 英文/其他：约 4 字符 = 1 token
+  const chineseTokens = chineseCharCount / 1.5;
+  const nonChineseTokens = nonChineseCharCount / 4;
+  
+  // 返回向上取整的正整数
+  return Math.max(1, Math.ceil(chineseTokens + nonChineseTokens));
+}
+
+/**
+ * 默认输出 token 预留空间
+ * 当 maxOutputTokens 未设置时使用此值进行内容截断计算
+ */
+export const DEFAULT_OUTPUT_TOKEN_RESERVATION = 4096;
+
 // 导出配置供测试使用
-export { CONTEXT_LENGTH_CONFIGS, DEFAULT_CONTEXT_LENGTH };
+export { CONTEXT_LENGTH_CONFIGS, DEFAULT_CONTEXT_LENGTH, OUTPUT_TOKEN_LIMITS, DEFAULT_OUTPUT_TOKEN_LIMIT };

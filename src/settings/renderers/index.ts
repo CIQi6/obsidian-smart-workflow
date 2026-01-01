@@ -8,3 +8,4 @@ export { NamingSettingsRenderer } from './namingSettingsRenderer';
 export { TerminalSettingsRenderer } from './terminalSettingsRenderer';
 export { AdvancedSettingsRenderer } from './advancedSettingsRenderer';
 export { WritingSettingsRenderer } from './writingSettingsRenderer';
+export { TranslationSettingsRenderer } from './translationSettingsRenderer';

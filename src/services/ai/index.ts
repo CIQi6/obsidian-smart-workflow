@@ -22,7 +22,7 @@ export { ModelFetcher, type ModelFetcherOptions, type RemoteModelInfo } from './
 // 模型元数据推断
 // ============================================================================
 
-export { inferContextLength, CONTEXT_LENGTH_CONFIGS, DEFAULT_CONTEXT_LENGTH } from './modelContextLengths';
+export { inferContextLength, inferOutputTokenLimit, getRecommendedOutputTokens, estimateTokenCount, CONTEXT_LENGTH_CONFIGS, DEFAULT_CONTEXT_LENGTH, OUTPUT_TOKEN_LIMITS, DEFAULT_OUTPUT_TOKEN_LIMIT, DEFAULT_OUTPUT_TOKEN_RESERVATION } from './modelContextLengths';
 export {
   inferModelType,
   inferModelAbilities,

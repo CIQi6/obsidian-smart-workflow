@@ -7,13 +7,18 @@
  */
 
 import { App, TFile } from 'obsidian';
-import { SmartWorkflowSettings, BASE_PROMPT_TEMPLATE } from '../../settings/settings';
+import { SmartWorkflowSettings, BASE_PROMPT_TEMPLATE, ModelConfig } from '../../settings/settings';
 import { ConfigManager } from '../config/configManager';
 import { FileAnalyzer } from './fileAnalyzer';
 import { debugLog, debugWarn } from '../../utils/logger';
 import { t } from '../../i18n';
 import { AIClient } from '../ai';
 import { AIError, isAIError } from '../ai/errors';
+import { 
+  inferContextLength, 
+  estimateTokenCount, 
+  DEFAULT_OUTPUT_TOKEN_RESERVATION 
+} from '../ai/modelContextLengths';
 
 /**
  * 生成文件名结果接口
@@ -177,7 +182,7 @@ export class FileNameService {
     }
 
     const { provider, model, promptTemplate } = resolvedConfig;
-    const prompt = this.preparePrompt(content, promptTemplate, currentFileName, directoryNamingStyle);
+    const prompt = this.preparePrompt(content, promptTemplate, model, currentFileName, directoryNamingStyle);
 
     if (this.settings.debugMode) {
       debugLog('[FileNameService] 发送给 AI 的 Prompt:');
@@ -208,10 +213,11 @@ export class FileNameService {
   private preparePrompt(
     content: string,
     promptTemplate: string,
+    model: ModelConfig,
     currentFileName?: string,
     directoryNamingStyle?: string
   ): string {
-    const truncatedContent = this.smartTruncateContent(content);
+    const truncatedContent = this.smartTruncateContent(content, model);
 
     let template = promptTemplate;
     if (!this.settings.useCurrentFileNameContext) {
@@ -284,17 +290,81 @@ export class FileNameService {
 
   /**
    * 智能截取内容
+   * 根据模型的上下文长度和输出 token 限制计算可用输入空间
+   * 
+   * @param content 原始内容
+   * @param model 模型配置（可选）
+   * @returns 截断后的内容
    */
-  private smartTruncateContent(content: string, maxChars = 3000): string {
-    if (content.length <= maxChars) return content;
-
+  private smartTruncateContent(content: string, model?: ModelConfig): string {
+    // 计算可用输入 token 空间
+    const availableInputTokens = this.calculateAvailableInputTokens(model);
+    
+    // 估算当前内容的 token 数
+    const contentTokens = estimateTokenCount(content);
+    
+    // 如果内容在限制内，直接返回
+    if (contentTokens <= availableInputTokens) {
+      return content;
+    }
+    
+    // 计算需要保留的字符数（基于 token 估算的反向计算）
+    // 使用保守估算：假设平均 2 字符 = 1 token（中英文混合）
+    const maxChars = Math.floor(availableInputTokens * 2);
+    
+    // 应用智能截断（保留头尾）
     const headChars = Math.floor(maxChars * 0.6);
     const tailChars = Math.floor(maxChars * 0.3);
 
     const head = content.substring(0, headChars);
     const tail = content.substring(content.length - tailChars);
 
-    return `${head}\n\n[... Content truncated due to length. Total ${content.length} characters, showing first ${headChars} and last ${tailChars} characters ...]\n\n${tail}`;
+    const truncatedContent = `${head}\n\n[... Content truncated due to length. Total ${content.length} characters (~${contentTokens} tokens), showing first ${headChars} and last ${tailChars} characters ...]\n\n${tail}`;
+    
+    if (this.settings.debugMode) {
+      debugLog(`[FileNameService] 内容截断: ${content.length} 字符 (~${contentTokens} tokens) -> ${truncatedContent.length} 字符, 可用空间: ${availableInputTokens} tokens`);
+    }
+    
+    return truncatedContent;
+  }
+
+  /**
+   * 计算可用的输入 token 空间
+   * 
+   * 计算公式: 可用输入空间 = 上下文长度 - 输出预留空间 - 系统提示预留
+   * 
+   * @param model 模型配置（可选）
+   * @returns 可用的输入 token 数
+   */
+  private calculateAvailableInputTokens(model?: ModelConfig): number {
+    // 默认值：保守的 3000 字符约等于 1500 tokens
+    const DEFAULT_AVAILABLE_TOKENS = 1500;
+    
+    // 系统提示和模板预留空间（约 500 tokens）
+    const SYSTEM_PROMPT_RESERVATION = 500;
+    
+    if (!model) {
+      return DEFAULT_AVAILABLE_TOKENS;
+    }
+    
+    // 获取上下文长度（优先使用配置值，否则推断）
+    const contextLength = inferContextLength(model.name);
+    
+    // 如果无法推断上下文长度，使用默认值
+    if (contextLength === 0) {
+      return DEFAULT_AVAILABLE_TOKENS;
+    }
+    
+    // 获取输出 token 预留空间
+    const outputReservation = model.maxOutputTokens && model.maxOutputTokens > 0 
+      ? model.maxOutputTokens 
+      : DEFAULT_OUTPUT_TOKEN_RESERVATION;
+    
+    // 计算可用输入空间
+    const availableTokens = contextLength - outputReservation - SYSTEM_PROMPT_RESERVATION;
+    
+    // 确保返回合理的正值，最小为默认值
+    return Math.max(availableTokens, DEFAULT_AVAILABLE_TOKENS);
   }
 
   /**

@@ -466,17 +466,12 @@ export class GeneralSettingsRenderer extends BaseSettingsRenderer {
     // 使用 createModelTagGroup 渲染类型和能力标签
     createModelTagGroup(tagsEl, type, abilities);
 
-    // 上下文长度标签（如果有）
-    if (model.contextLength) {
+    // 上下文长度标签（动态推断）
+    const inferredContextLength = inferContextLength(model.name);
+    if (inferredContextLength > 0) {
       const contextEl = tagsEl.createSpan({ cls: 'context-length-tag' });
-      contextEl.setText(formatContextLength(model.contextLength));
-      contextEl.setCssProps({
-        'font-size': '0.7em',
-        padding: '1px 4px',
-        'border-radius': '3px',
-        'background-color': 'var(--background-primary)',
-        color: 'var(--text-muted)'
-      });
+      contextEl.setText(formatContextLength(inferredContextLength));
+      contextEl.setAttribute('aria-label', `Context: ${inferredContextLength.toLocaleString()} tokens`);
     }
 
     // 操作按钮
@@ -686,7 +681,7 @@ export class GeneralSettingsRenderer extends BaseSettingsRenderer {
                 name: modelId,
                 displayName: '',
                 temperature: 0.7,
-                maxTokens: inferContextLength(modelId),
+                maxOutputTokens: 0, // 0 表示自动，由 API 使用默认值
                 topP: 1.0
               });
             }

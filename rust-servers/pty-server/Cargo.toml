@@ -12,9 +12,4 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 futures-util = "0.3"
 
-[profile.release]
-opt-level = 3       # Optimize for speed rather than size
-lto = "thin"        # Use thin LTO, balance compile speed and runtime performance
-codegen-units = 1   # Better optimization
-strip = true        # Remove symbol table
-panic = "abort"     # Reduce binary size
+# 注意: release profile 已移至 workspace 根目录的 Cargo.toml

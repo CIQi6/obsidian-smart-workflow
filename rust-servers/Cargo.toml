@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = [
+    "pty-server",
+    "voice-server",
+]
+
+# 共享的 release profile 配置
+[profile.release]
+opt-level = 3       # 优化速度而非大小
+lto = "thin"        # 使用 thin LTO，平衡编译速度和运行时性能
+codegen-units = 1   # 更好的优化
+strip = true        # 移除符号表
+panic = "abort"     # 减少二进制大小

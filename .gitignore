@@ -16,6 +16,9 @@ binaries/
 main.js
 *.js.map
 
+# Plugin package (release artifacts)
+plugin-package/
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

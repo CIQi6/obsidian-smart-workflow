@@ -109,6 +109,10 @@ export interface ServerEvents {
   'ws-connected': () => void;
   /** WebSocket 已断开 */
   'ws-disconnected': () => void;
+  /** WebSocket 正在重连 */
+  'ws-reconnecting': (attempt: number, delay: number) => void;
+  /** WebSocket 重连失败（达到最大重试次数） */
+  'ws-reconnect-failed': () => void;
 }
 
 // ============================================================================

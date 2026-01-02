@@ -33,6 +33,16 @@ import { UtilsClient } from './utilsClient';
 type EventListener<K extends keyof ServerEvents> = ServerEvents[K];
 
 /**
+ * websocket重连配置
+ */
+interface ReconnectConfig {
+  /** 最大重连次数 */
+  maxAttempts: number;
+  /** 重连间隔 (ms) */
+  interval: number;
+}
+
+/**
  * 统一服务器管理器
  * 
  * 替代 BinaryManager + TerminalService + VoiceServerManager
@@ -53,11 +63,26 @@ export class ServerManager {
   /** 是否正在关闭 */
   private isShuttingDown = false;
   
-  /** 重启尝试次数 */
+  /** 服务器重启尝试次数 */
   private restartAttempts = 0;
   
-  /** 最大重启次数 */
+  /** 最大服务器重启次数 */
   private readonly maxRestartAttempts = 3;
+  
+  /** WebSocket 重连尝试次数 */
+  private wsReconnectAttempts = 0;
+  
+  /** 重连配置 */
+  private reconnectConfig: ReconnectConfig = {
+    maxAttempts: 5,
+    interval: 3000,
+  };
+  
+  /** 是否正在重连 */
+  private isReconnecting = false;
+  
+  /** 重连定时器 */
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   
   /** 服务器启动 Promise */
   private serverStartPromise: Promise<void> | null = null;
@@ -173,10 +198,13 @@ export class ServerManager {
     
     debugLog('[ServerManager] 关闭服务器...');
     
+    // 取消重连定时器
+    this.cancelReconnect();
+    
     // 关闭 WebSocket 连接
     if (this.ws) {
       try {
-        this.ws.close();
+        this.ws.close(1000, 'Shutdown');
       } catch (error) {
         debugWarn('[ServerManager] 关闭 WebSocket 时出错:', error);
       }
@@ -245,6 +273,20 @@ export class ServerManager {
    */
   isConnected(): boolean {
     return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * 是否正在重连
+   */
+  isReconnectingWebSocket(): boolean {
+    return this.isReconnecting;
+  }
+
+  /**
+   * 获取 WebSocket 重连尝试次数
+   */
+  getReconnectAttempts(): number {
+    return this.wsReconnectAttempts;
   }
 
   /**
@@ -440,8 +482,6 @@ export class ServerManager {
 
   /**
    * 建立 WebSocket 连接
-   * 
-
    */
   private async connectWebSocket(): Promise<void> {
     if (this.wsConnectPromise) {
@@ -450,6 +490,7 @@ export class ServerManager {
 
     this.wsConnectPromise = new Promise((resolve, reject) => {
       if (!this.port) {
+        this.wsConnectPromise = null;
         reject(new ServerManagerError(
           ServerErrorCode.CONNECTION_FAILED,
           '服务器端口未知'
@@ -463,6 +504,7 @@ export class ServerManager {
       this.ws = new WebSocket(wsUrl);
       
       const timeout = setTimeout(() => {
+        this.wsConnectPromise = null;
         reject(new ServerManagerError(
           ServerErrorCode.CONNECTION_FAILED,
           'WebSocket 连接超时'
@@ -473,6 +515,10 @@ export class ServerManager {
         clearTimeout(timeout);
         debugLog('[ServerManager] WebSocket 已连接');
         
+        // 重置重连计数
+        this.wsReconnectAttempts = 0;
+        this.isReconnecting = false;
+        
         // 更新所有模块客户端的 WebSocket
         this.updateClientsWebSocket();
         
@@ -480,8 +526,8 @@ export class ServerManager {
         resolve();
       };
 
-      this.ws.onclose = () => {
-        debugLog('[ServerManager] WebSocket 已断开');
+      this.ws.onclose = (event) => {
+        debugLog('[ServerManager] WebSocket 已断开, code:', event.code, 'reason:', event.reason);
         this.wsConnectPromise = null;
         
         // 清除模块客户端的 WebSocket
@@ -494,17 +540,14 @@ export class ServerManager {
         
         // 如果不是主动关闭，尝试重连
         if (!this.isShuttingDown && this.port !== null) {
-          this.handleWebSocketDisconnect();
+          this.scheduleReconnect();
         }
       };
 
       this.ws.onerror = (event) => {
         clearTimeout(timeout);
         errorLog('[ServerManager] WebSocket 错误:', event);
-        reject(new ServerManagerError(
-          ServerErrorCode.WEBSOCKET_ERROR,
-          'WebSocket 连接错误'
-        ));
+        // 不在这里 reject，让 onclose 处理
       };
 
       this.ws.onmessage = (event) => {
@@ -571,18 +614,86 @@ export class ServerManager {
   }
 
   /**
-   * 处理 WebSocket 断开
+   * 处理 WebSocket 断开 - 调度重连
    */
-  private handleWebSocketDisconnect(): void {
-    // 尝试重连
-    setTimeout(() => {
-      if (!this.isShuttingDown && this.port !== null) {
-        debugLog('[ServerManager] 尝试重连 WebSocket...');
-        this.connectWebSocket().catch(error => {
-          errorLog('[ServerManager] WebSocket 重连失败:', error);
-        });
-      }
-    }, 1000);
+  private scheduleReconnect(): void {
+    // 如果已经在重连或正在关闭，跳过
+    if (this.isReconnecting || this.isShuttingDown) {
+      return;
+    }
+    
+    // 检查是否超过最大重连次数
+    if (this.wsReconnectAttempts >= this.reconnectConfig.maxAttempts) {
+      errorLog(
+        `[ServerManager] WebSocket 重连失败，已达到最大重试次数 (${this.reconnectConfig.maxAttempts})`
+      );
+      
+      new Notice(
+        t('notices.wsReconnectFailed') || 'WebSocket 连接断开，请重新加载插件',
+        0
+      );
+      
+      this.emit('ws-reconnect-failed');
+      return;
+    }
+    
+    this.isReconnecting = true;
+    this.wsReconnectAttempts++;
+    
+    const delay = this.reconnectConfig.interval;
+    
+    debugLog(
+      `[ServerManager] 将在 ${delay}ms 后尝试重连 WebSocket ` +
+      `(${this.wsReconnectAttempts}/${this.reconnectConfig.maxAttempts})`
+    );
+    
+    this.emit('ws-reconnecting', this.wsReconnectAttempts, delay);
+    
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.attemptReconnect();
+    }, delay);
+  }
+
+  /**
+   * 执行 WebSocket 重连
+   */
+  private async attemptReconnect(): Promise<void> {
+    if (this.isShuttingDown || !this.port) {
+      this.isReconnecting = false;
+      return;
+    }
+    
+    debugLog('[ServerManager] 尝试重连 WebSocket...');
+    
+    try {
+      await this.connectWebSocket();
+      
+      debugLog('[ServerManager] WebSocket 重连成功');
+      new Notice(
+        t('notices.wsReconnectSuccess') || 'WebSocket 重连成功',
+        3000
+      );
+      
+    } catch (error) {
+      errorLog('[ServerManager] WebSocket 重连失败:', error);
+      this.isReconnecting = false;
+      
+      // 继续尝试重连
+      this.scheduleReconnect();
+    }
+  }
+
+  /**
+   * 取消重连
+   */
+  private cancelReconnect(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.isReconnecting = false;
+    this.wsReconnectAttempts = 0;
   }
 
   /**
@@ -717,5 +828,46 @@ export class ServerManager {
   resetShutdownState(): void {
     this.isShuttingDown = false;
     this.restartAttempts = 0;
+    this.wsReconnectAttempts = 0;
+    this.isReconnecting = false;
+  }
+
+  /**
+   * 手动触发重连（供外部调用）
+   */
+  async reconnect(): Promise<void> {
+    if (this.isShuttingDown) {
+      throw new ServerManagerError(
+        ServerErrorCode.CONNECTION_FAILED,
+        '服务器正在关闭'
+      );
+    }
+    
+    // 重置重连计数
+    this.wsReconnectAttempts = 0;
+    this.cancelReconnect();
+    
+    // 关闭现有连接
+    if (this.ws) {
+      this.ws.close(1000, 'Manual reconnect');
+      this.ws = null;
+    }
+    
+    // 如果服务器还在运行，直接重连 WebSocket
+    if (this.port !== null && this.process !== null) {
+      await this.connectWebSocket();
+    } else {
+      // 否则重启整个服务器
+      await this.ensureServer();
+    }
+  }
+
+  /**
+   * 更新连接配置
+   * @param config 连接配置
+   */
+  updateConnectionConfig(config: Partial<ReconnectConfig>): void {
+    Object.assign(this.reconnectConfig, config);
+    debugLog('[ServerManager] 更新重连配置:', this.reconnectConfig);
   }
 }

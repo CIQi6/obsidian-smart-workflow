@@ -748,6 +748,29 @@ export interface FeatureVisibilitySettings {
   };
 }
 
+// ============================================================================
+// 服务器连接设置
+// ============================================================================
+
+/**
+ * 服务器连接设置
+ * 只保留最核心的重连配置
+ */
+export interface ServerConnectionSettings {
+  /** 最大重连次数 */
+  maxReconnectAttempts: number;
+  /** 重连间隔 (ms) */
+  reconnectInterval: number;
+}
+
+/**
+ * 默认服务器连接设置
+ */
+export const DEFAULT_SERVER_CONNECTION_SETTINGS: ServerConnectionSettings = {
+  maxReconnectAttempts: 5,
+  reconnectInterval: 3000,
+};
+
 /**
  * 插件设置接口
  */
@@ -773,6 +796,7 @@ export interface SmartWorkflowSettings {
   writing: WritingSettings;      // 写作功能设置
   translation: TranslationSettings; // 翻译功能设置
   voice: VoiceSettings;          // 语音输入设置
+  serverConnection: ServerConnectionSettings; // 服务器连接设置
 }
 
 /**
@@ -981,4 +1005,5 @@ export const DEFAULT_SETTINGS: SmartWorkflowSettings = {
   writing: DEFAULT_WRITING_SETTINGS, // 写作功能默认设置
   translation: DEFAULT_TRANSLATION_SETTINGS, // 翻译功能默认设置
   voice: DEFAULT_VOICE_SETTINGS, // 语音输入默认设置
+  serverConnection: DEFAULT_SERVER_CONNECTION_SETTINGS, // 服务器连接默认设置
 };

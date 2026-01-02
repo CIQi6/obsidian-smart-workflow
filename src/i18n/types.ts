@@ -84,6 +84,9 @@ export interface TranslationKeys {
     cannotDeleteLast: string;
     cannotDeleteLastModel: string;
     ptyServerStartFailed: string;
+    serverStartFailed: string;
+    wsReconnectFailed: string;
+    wsReconnectSuccess: string;
     // 终端相关
     terminal: {
       serverStarted: string;
@@ -327,6 +330,15 @@ export interface TranslationKeys {
       showInRibbonTerminalDesc: string;
       showInNewTab: string;
       showInNewTabDesc: string;
+      // 服务器连接设置
+      serverConnection: string;
+      serverConnectionDesc: string;
+      reconnectMaxAttempts: string;
+      reconnectMaxAttemptsDesc: string;
+      reconnectInterval: string;
+      reconnectIntervalDesc: string;
+      resetToDefaults: string;
+      resetToDefaultsDesc: string;
     };
   };
 

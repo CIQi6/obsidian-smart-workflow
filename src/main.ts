@@ -155,6 +155,14 @@ export default class SmartWorkflowPlugin extends Plugin {
       debugLog('[SmartWorkflowPlugin] Initializing ServerManager...');
       const pluginDir = this.getPluginDir();
       this._serverManager = new ServerManager(pluginDir);
+      
+      // 应用配置中的连接设置
+      const { maxReconnectAttempts, reconnectInterval } = this.settings.serverConnection;
+      this._serverManager.updateConnectionConfig({
+        maxAttempts: maxReconnectAttempts,
+        interval: reconnectInterval,
+      });
+      
       debugLog('[SmartWorkflowPlugin] ServerManager initialized');
     }
     return this._serverManager;
@@ -862,6 +870,11 @@ export default class SmartWorkflowPlugin extends Plugin {
           ...DEFAULT_SETTINGS.voice.assistantConfig,
           ...loaded.voice?.assistantConfig
         }
+      },
+      // 服务器连接设置深度合并
+      serverConnection: {
+        ...DEFAULT_SETTINGS.serverConnection,
+        ...loaded.serverConnection,
       }
     };
   }
@@ -970,6 +983,15 @@ export default class SmartWorkflowPlugin extends Plugin {
     if (this._voiceOverlay) {
       this._voiceOverlay.updateConfig({
         position: this.settings.voice.overlayPosition,
+      });
+    }
+
+    // 更新服务器连接配置（仅当已初始化时）
+    if (this._serverManager) {
+      const { maxReconnectAttempts, reconnectInterval } = this.settings.serverConnection;
+      this._serverManager.updateConnectionConfig({
+        maxAttempts: maxReconnectAttempts,
+        interval: reconnectInterval,
       });
     }
   }

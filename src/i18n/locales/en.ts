@@ -70,6 +70,9 @@ export const en: TranslationKeys = {
     cannotDeleteLast: 'Cannot delete the last configuration',
     cannotDeleteLastModel: 'Cannot delete the last model of a provider',
     ptyServerStartFailed: 'PTY server failed to start\nPlease check the console for detailed error information',
+    serverStartFailed: 'Server failed to start',
+    wsReconnectFailed: 'WebSocket connection lost, max retry attempts reached\nPlease reload the plugin',
+    wsReconnectSuccess: 'WebSocket reconnected successfully',
     terminal: {
       serverStarted: 'PTY server started',
       serverStopped: 'PTY server stopped',
@@ -308,6 +311,15 @@ export const en: TranslationKeys = {
       showInRibbonTerminalDesc: 'Show open terminal shortcut icon in left sidebar',
       showInNewTab: 'New Tab Page',
       showInNewTabDesc: 'Show "Open Terminal" option in new tab page',
+      // Server connection settings
+      serverConnection: 'Server Connection',
+      serverConnectionDesc: 'Configure WebSocket reconnection parameters',
+      reconnectMaxAttempts: 'Max Reconnect Attempts',
+      reconnectMaxAttemptsDesc: 'Maximum number of reconnection attempts after disconnection (1-20)',
+      reconnectInterval: 'Reconnect Interval',
+      reconnectIntervalDesc: 'Wait time between reconnection attempts (ms, 1000-30000)',
+      resetToDefaults: 'Reset to Defaults',
+      resetToDefaultsDesc: 'Reset all server connection settings to default values',
     },
   },
 

@@ -688,7 +688,7 @@ export class SelectionToolbarManager {
 
   /**
    * 处理键盘按下事件
-   * Escape 键立即隐藏工具栏
+   * Escape/Backspace/Delete 键立即隐藏工具栏
    */
   private handleKeyDown(e: KeyboardEvent): void {
     if (!this.toolbarView.getIsVisible()) {
@@ -697,6 +697,13 @@ export class SelectionToolbarManager {
     
     // Escape 键立即隐藏工具栏（无动画）
     if (e.key === 'Escape') {
+      this.clearShowDelayTimeout();
+      this.toolbarView.hideImmediately();
+      return;
+    }
+    
+    // Backspace/Delete 键删除选区内容时隐藏工具栏
+    if (e.key === 'Backspace' || e.key === 'Delete') {
       this.clearShowDelayTimeout();
       this.toolbarView.hideImmediately();
     }

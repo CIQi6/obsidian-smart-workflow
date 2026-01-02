@@ -70,6 +70,9 @@ export const zhCN: TranslationKeys = {
     cannotDeleteLast: '无法删除最后一个配置',
     cannotDeleteLastModel: '无法删除供应商的最后一个模型',
     ptyServerStartFailed: 'PTY 服务器启动失败\n请查看控制台获取详细错误信息',
+    serverStartFailed: '服务器启动失败',
+    wsReconnectFailed: 'WebSocket 连接断开，已达到最大重试次数\n请重新加载插件',
+    wsReconnectSuccess: 'WebSocket 重连成功',
     terminal: {
       serverStarted: 'PTY 服务器已启动',
       serverStopped: 'PTY 服务器已停止',
@@ -308,6 +311,15 @@ export const zhCN: TranslationKeys = {
       showInRibbonTerminalDesc: '在左侧边栏显示打开终端快捷图标',
       showInNewTab: '新标签页',
       showInNewTabDesc: '在新标签页中显示"打开终端"选项',
+      // 服务器连接设置
+      serverConnection: '服务器连接',
+      serverConnectionDesc: '配置 WebSocket 断线重连参数',
+      reconnectMaxAttempts: '最大重连次数',
+      reconnectMaxAttemptsDesc: '连接断开后的最大重连尝试次数（1-20）',
+      reconnectInterval: '重连间隔',
+      reconnectIntervalDesc: '每次重连的等待时间（毫秒，1000-30000）',
+      resetToDefaults: '重置为默认值',
+      resetToDefaultsDesc: '将所有服务器连接设置恢复为默认值',
     },
   },
 

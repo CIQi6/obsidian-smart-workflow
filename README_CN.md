@@ -145,6 +145,10 @@ A: 建议先尝试 WebGL 获得更好性能，如遇问题再切换到 Canvas。
 **Q: 语音输入不工作？**  
 A: 检查 ASR 凭证配置，确保已授予麦克风权限。
 
+## 🙏 致谢
+
+- [push-2-talk](https://github.com/yyyzl/push-2-talk) - 语音输入架构参考
+
 ---
 
 <div align="center">

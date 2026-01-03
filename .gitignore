@@ -1,10 +1,20 @@
 # Node modules
 node_modules/
-.claude/
 .kiro/
 *.bat
 main.css
 docs/
+
+# GEMINI
+.gemini
+GEMINI.md
+
+# CLAUDE
+.claude/
+CLAUDE.md
+
+# OpenAI
+AGENTS.md
 
 # Rust
 target/

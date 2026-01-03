@@ -149,6 +149,12 @@ A: Check ASR credentials and ensure microphone permissions are granted.
 
 - [push-2-talk](https://github.com/yyyzl/push-2-talk) - Voice input architecture inspiration
 
+## 💬 Community
+
+Join our WeChat group for discussion and support:
+
+<img src="assets/wechat.png" width="200" alt="WeChat Group QR Code">
+
 ---
 
 <div align="center">

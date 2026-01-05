@@ -34,6 +34,9 @@ export class CategoryConfirmModal extends Modal {
   onOpen() {
     const { contentEl } = this;
 
+    // 清空之前的内容，避免重复渲染时内容累积
+    contentEl.empty();
+
     // 标题
     contentEl.createEl('h2', { text: '选择归档分类' });
 

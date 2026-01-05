@@ -32,6 +32,9 @@ import { CategoryService } from './services/categorizing/categoryService';
 import { ArchiveService } from './services/archiving/archiveService';
 import { CategoryConfirmModal } from './ui/categorizing/categoryConfirmModal';
 
+// 自动归档服务
+import { AutoArchiveService } from './services/automation/autoArchiveService';
+
 // 导入选择工具栏样式
 import './ui/selection/selectionToolbar.css';
 
@@ -154,6 +157,9 @@ export default class SmartWorkflowPlugin extends Plugin {
   private _categoryService: CategoryService | null = null;
   private _archiveService: ArchiveService | null = null;
 
+  // 自动归档服务（延迟初始化）
+  private _autoArchiveService: AutoArchiveService | null = null;
+
   // Ribbon 图标引用
   private aiNamingRibbonIcon: HTMLElement | null = null;
   private terminalRibbonIcon: HTMLElement | null = null;
@@ -250,6 +256,24 @@ export default class SmartWorkflowPlugin extends Plugin {
       debugLog('[SmartWorkflowPlugin] Archive Service initialized');
     }
     return this._archiveService;
+  }
+
+  /**
+   * 获取自动归档服务（延迟初始化）
+   */
+  get autoArchiveService(): AutoArchiveService {
+    if (!this._autoArchiveService) {
+      debugLog('[SmartWorkflowPlugin] Initializing Auto Archive Service...');
+      this._autoArchiveService = new AutoArchiveService(
+        this.app,
+        this.settings,
+        this.tagService,
+        this.categoryService,
+        this.archiveService
+      );
+      debugLog('[SmartWorkflowPlugin] Auto Archive Service initialized');
+    }
+    return this._autoArchiveService;
   }
 
   /**
@@ -774,6 +798,19 @@ export default class SmartWorkflowPlugin extends Plugin {
     if (this.settings.selectionToolbar.enabled) {
       // 触发延迟初始化
       this.selectionToolbarManager;
+    }
+
+    // 注册自动归档元数据监听（如果启用）
+    if (this.settings.autoArchive?.enabled) {
+      this.registerEvent(
+        this.app.metadataCache.on('changed', (file: TFile) => {
+          const metadata = this.app.metadataCache.getFileCache(file);
+          if (this.autoArchiveService.shouldAutoArchive(file, metadata)) {
+            this.autoArchiveService.processAutoArchive(file);
+          }
+        })
+      );
+      debugLog('[SmartWorkflowPlugin] Auto Archive metadata listener registered');
     }
   }
 
@@ -1329,6 +1366,15 @@ export default class SmartWorkflowPlugin extends Plugin {
 
     // 注意：VoiceInputService 直接使用 ServerManager，
     // _serverManager.shutdown() 会统一关闭服务器
+
+    // 清理自动归档相关资源（仅当已初始化时）
+    if (this._autoArchiveService) {
+      try {
+        this._autoArchiveService.cleanup();
+      } catch (error) {
+        errorLog('清理自动归档服务失败:', error);
+      }
+    }
 
     // 清理终端相关资源（仅当已初始化时）
     if (this._terminalService) {

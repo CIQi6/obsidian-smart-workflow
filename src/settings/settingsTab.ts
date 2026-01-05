@@ -17,7 +17,8 @@ import {
   TerminalSettingsRenderer,
   AdvancedSettingsRenderer,
   VoiceSettingsRenderer,
-  TaggingSettingsRenderer
+  TaggingSettingsRenderer,
+  AutoArchiveSettingsRenderer
 } from './renderers';
 
 /**
@@ -38,6 +39,7 @@ export class SmartWorkflowSettingTab extends PluginSettingTab {
   private advancedRenderer: AdvancedSettingsRenderer;
   private voiceRenderer: VoiceSettingsRenderer;
   private taggingRenderer: TaggingSettingsRenderer;
+  private autoArchiveRenderer: AutoArchiveSettingsRenderer;
 
   constructor(app: App, plugin: SmartWorkflowPlugin) {
     super(app, plugin);
@@ -54,6 +56,7 @@ export class SmartWorkflowSettingTab extends PluginSettingTab {
     this.advancedRenderer = new AdvancedSettingsRenderer();
     this.voiceRenderer = new VoiceSettingsRenderer();
     this.taggingRenderer = new TaggingSettingsRenderer();
+    this.autoArchiveRenderer = new AutoArchiveSettingsRenderer();
   }
 
   display(): void {
@@ -191,6 +194,9 @@ export class SmartWorkflowSettingTab extends PluginSettingTab {
         break;
       case 'tagging':
         this.taggingRenderer.render(context);
+        break;
+      case 'autoArchive':
+        this.autoArchiveRenderer.render(context);
         break;
       case 'voice':
         this.voiceRenderer.render(context);
